@@ -58,8 +58,6 @@ void LoggedTopics::add_default_topics()
 	add_topic("commander_state");
 	add_topic("config_overrides");
 	add_topic("cpuload");
-	add_optional_topic("differential_drive_control_output", 100);
-	add_optional_topic("differential_drive_setpoint", 100);
 	add_optional_topic("external_ins_attitude");
 	add_optional_topic("external_ins_global_position");
 	add_optional_topic("external_ins_local_position");
@@ -104,6 +102,8 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("px4io_status");
 	add_topic("radio_status");
 	add_topic("rover_ackermann_guidance_status", 100);
+	add_optional_topic("rover_differential_control_output", 100);
+	add_optional_topic("rover_differential_setpoint", 100);
 	add_topic("rtl_time_estimate", 1000);
 	add_topic("rtl_status", 2000);
 	add_optional_topic("sensor_airflow", 100);

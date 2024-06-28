@@ -71,7 +71,6 @@ set(msg_files
 	DebugKeyValue.msg
 	DebugValue.msg
 	DebugVect.msg
-	DifferentialDriveSetpoint.msg
 	DifferentialPressure.msg
 	DistanceSensor.msg
 	Ekf2Timestamps.msg
@@ -180,6 +179,7 @@ set(msg_files
 	RegisterExtComponentReply.msg
 	RegisterExtComponentRequest.msg
 	RoverAckermannGuidanceStatus.msg
+	RoverDifferentialSetpoint.msg
 	Rpm.msg
 	RtlStatus.msg
 	RtlTimeEstimate.msg
