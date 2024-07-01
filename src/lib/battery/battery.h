@@ -187,7 +187,7 @@ private:
 	matrix::Vector2f _RLS_est; // [Open circuit voltage estimate [V], Total internal resistance estimate [Ohm]]^T
 	matrix::Matrix2f _estimation_covariance;
 	float _estimation_covariance_norm{0.f};
-	float _internal_resistance_stable{0.005f}; // [Ohm] Stable per cell estimate of the internal resistance
+	float _internal_resistance_estimate{0.005f}; // [Ohm] Per cell estimate of the internal resistance
 	float _voltage_prediction{0.f}; // [V] Predicted voltage of the estimator
 	float _prediction_error{0.f}; // [V] Error between the predicted and measured voltage
 	static constexpr float LAMBDA = 0.95f; 	// [0, 1] Forgetting factor (Tuning parameter for the RLS algorithm)
