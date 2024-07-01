@@ -3,7 +3,7 @@ module_name: Rover Differential
 parameters:
   - group: Rover Differential
     definitions:
-      RDD_WHEEL_BASE:
+      RD_WHEEL_BASE:
         description:
           short: Wheel base
           long: Distance from the center of the right wheel to the center of the left wheel
@@ -14,7 +14,7 @@ parameters:
         increment: 0.001
         decimal: 3
         default: 0.5
-      RDD_WHEEL_RADIUS:
+      RD_WHEEL_RADIUS:
         description:
           short: Wheel radius
           long: Size of the wheel, half the diameter of the wheel
@@ -25,7 +25,7 @@ parameters:
         increment: 0.001
         decimal: 3
         default: 0.1
-      RDD_SPEED_SCALE:
+      RD_SPEED_SCALE:
         description:
           short: Manual speed scale
         type: float
@@ -34,7 +34,7 @@ parameters:
         increment: 0.01
         decimal: 2
         default: 1
-      RDD_ANG_SCALE:
+      RD_ANG_SCALE:
         description:
           short: Manual angular velocity scale
         type: float
@@ -43,7 +43,7 @@ parameters:
         increment: 0.01
         decimal: 2
         default: 1
-      RDD_WHEEL_SPEED:
+      RD_WHEEL_SPEED:
         description:
           short: Maximum wheel speed
         type: float
@@ -53,7 +53,7 @@ parameters:
         increment: 0.01
         decimal: 2
         default: 0.3
-      RDD_P_HEADING:
+      RD_P_HEADING:
         description:
           short: Proportional gain for heading controller
         type: float
@@ -62,7 +62,7 @@ parameters:
         increment: 0.01
         decimal: 2
         default: 1
-      RDD_P_SPEED:
+      RD_P_SPEED:
         description:
           short: Proportional gain for speed controller
         type: float
@@ -71,7 +71,7 @@ parameters:
         increment: 0.01
         decimal: 2
         default: 1
-      RDD_I_SPEED:
+      RD_I_SPEED:
         description:
           short: Integral gain for ground speed controller
         type: float
@@ -80,7 +80,7 @@ parameters:
         increment: 0.01
         decimal: 2
         default: 0
-      RDD_P_ANG_VEL:
+      RD_P_ANG_VEL:
         description:
           short: Proportional gain for angular velocity controller
         type: float
@@ -89,7 +89,7 @@ parameters:
         increment: 0.01
         decimal: 2
         default: 1
-      RDD_I_ANG_VEL:
+      RD_I_ANG_VEL:
         description:
           short: Integral gain for angular velocity controller
         type: float
@@ -98,7 +98,7 @@ parameters:
         increment: 0.01
         decimal: 2
         default: 0
-      RDD_MAX_JERK:
+      RD_MAX_JERK:
         description:
           short: Maximum jerk
           long: Limit for forwards acc/deceleration change.
@@ -109,7 +109,7 @@ parameters:
         increment: 0.01
         decimal: 2
         default: 0.5
-      RDD_MAX_ACCEL:
+      RD_MAX_ACCEL:
         description:
           short: Maximum acceleration
           long: Maximum acceleration is used to limit the acceleration of the rover
@@ -120,7 +120,7 @@ parameters:
         increment: 0.01
         decimal: 2
         default: 0.5
-      RDD_MIN_TRN_VEL:
+      RD_MIN_TRN_VEL:
         description:
           short: Minimun turning speed
           long: Minimum turning speed required to ensure vehicle turns properly, preventing no-turn situations caused by minor heading errors or motor limitations at low speeds.

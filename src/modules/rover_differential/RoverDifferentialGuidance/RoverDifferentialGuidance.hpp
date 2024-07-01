@@ -75,6 +75,13 @@ public:
 	RoverDifferentialGuidance(ModuleParams *parent);
 	~RoverDifferentialGuidance() = default;
 
+	struct differential_setpoint {
+		float speed{0.f};
+		float yaw_rate{0.f};
+		bool closed_loop_speed_control{false};
+		bool closed_loop_yaw_rate_control{false};
+	};
+
 	/**
 	 * @brief Compute guidance for the vehicle.
 	 * @param global_pos The global position of the vehicle in degrees.
@@ -85,7 +92,7 @@ public:
 	 * @param angular_velocity The angular velocity of the vehicle in rad/s.
 	 * @param dt The time step in seconds.
 	 */
-	void computeGuidance(float yaw, float angular_velocity, float dt);
+	RoverDifferentialGuidance::differential_setpoint computeGuidance(float yaw, float angular_velocity, float dt);
 
 	/**
 	 * @brief Set the maximum speed for the vehicle.
@@ -134,10 +141,10 @@ private:
 	PID_t _heading_p_controller; ///< The PID controller for yaw rate.
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::RDD_P_HEADING>) _param_rdd_p_gain_heading,
+		(ParamFloat<px4::params::RD_P_HEADING>) _param_rd_p_gain_heading,
 		(ParamFloat<px4::params::NAV_ACC_RAD>) _param_nav_acc_rad,
-		(ParamFloat<px4::params::RDD_MAX_JERK>) _param_rdd_max_jerk,
-		(ParamFloat<px4::params::RDD_MAX_ACCEL>) _param_rdd_max_accel,
-		(ParamFloat<px4::params::RDD_MIN_TRN_VEL>) _param_rdd_min_turning_speed
+		(ParamFloat<px4::params::RD_MAX_JERK>) _param_rd_max_jerk,
+		(ParamFloat<px4::params::RD_MAX_ACCEL>) _param_rd_max_accel,
+		(ParamFloat<px4::params::RD_MIN_TRN_VEL>) _param_rd_min_turning_speed
 	)
 };

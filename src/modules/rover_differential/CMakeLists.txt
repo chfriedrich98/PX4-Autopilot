@@ -31,9 +31,7 @@
 #
 ############################################################################
 
-add_subdirectory(RoverDifferentialControl)
 add_subdirectory(RoverDifferentialGuidance)
-add_subdirectory(RoverDifferentialKinematics)
 
 px4_add_module(
 	MODULE modules__rover_differential
@@ -42,9 +40,7 @@ px4_add_module(
 		RoverDifferential.cpp
 		RoverDifferential.hpp
 	DEPENDS
-		RoverDifferentialControl
 		RoverDifferentialGuidance
-		RoverDifferentialKinematics
 		px4_work_queue
 		modules__control_allocator # for parameter CA_R_REV
 	MODULE_CONFIG

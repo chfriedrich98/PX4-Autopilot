@@ -33,22 +33,32 @@
 
 #pragma once
 
+// PX4 includes
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/defines.h>
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/module_params.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
+
+// uORB includes
 #include <uORB/Publication.hpp>
+#include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/rover_differential_setpoint.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/parameter_update.h>
-#include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/actuator_motors.h>
+#include <uORB/topics/vehicle_angular_velocity.h>
+#include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/vehicle_local_position.h>
 
-#include "RoverDifferentialControl/RoverDifferentialControl.hpp"
+// Standard libraries
+#include <lib/pid/pid.h>
+#include <matrix/matrix/math.hpp>
+
+// Local includes
 #include "RoverDifferentialGuidance/RoverDifferentialGuidance.hpp"
-#include "RoverDifferentialKinematics/RoverDifferentialKinematics.hpp"
 
 using namespace time_literals;
 
@@ -70,36 +80,63 @@ public:
 
 	bool init();
 
+	/**
+	 * @brief Computes the inverse kinematics for differential drive.
+	 *
+	 * @param linear_velocity_x Linear velocity along the x-axis.
+	 * @param yaw_rate Yaw rate of the robot.
+	 * @return matrix::Vector2f Motor velocities for the right and left motors.
+	 */
+	matrix::Vector2f computeInverseKinematics(float linear_velocity_x, float yaw_rate) const;
+
 protected:
 	void updateParams() override;
 
 private:
 	void Run() override;
+
+	// uORB Subscriptions
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};
-	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
-
+	uORB::Subscription _vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
+	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
+	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+
+	// uORB Publications
+	uORB::PublicationMulti<actuator_motors_s> _actuator_motors_pub{ORB_ID(actuator_motors)};
 	uORB::Publication<rover_differential_setpoint_s> _rover_differential_setpoint_pub{ORB_ID(rover_differential_setpoint)};
 
-	bool _manual_driving = false;
-	bool _mission_driving = false;
-	bool _acro_driving = false;
-	hrt_abstime _time_stamp_last{0}; /**< time stamp when task was last updated */
 
+	// Instances
 	RoverDifferentialGuidance _rover_differential_guidance{this};
-	RoverDifferentialControl _rover_differential_control{this};
-	RoverDifferentialKinematics _rover_differential_kinematics{this};
 
+	// Variables
+	float _wheel_base{0.f};
 	float _max_speed{0.f};
 	float _max_angular_velocity{0.f};
+	float _vehicle_body_yaw_rate{0.f};
+	float _vehicle_forward_speed{0.f};
+	float _vehicle_yaw{0.f};
+	int _nav_state{0};
+	matrix::Quatf _vehicle_attitude_quaternion{};
+	hrt_abstime _time_stamp_last{0}; /**< time stamp when task was last updated */
+	PID_t _pid_angular_velocity; ///< The PID controller for yaw rate.
+	PID_t _pid_speed; ///< The PID controller for velocity.
+	RoverDifferentialGuidance::differential_setpoint _differential_setpoint;
+	RoverDifferentialGuidance::differential_setpoint _differential_setpoint_control;
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::RDD_ANG_SCALE>) _param_rdd_ang_velocity_scale,
-		(ParamFloat<px4::params::RDD_SPEED_SCALE>) _param_rdd_speed_scale,
-		(ParamFloat<px4::params::RDD_WHEEL_BASE>) _param_rdd_wheel_base,
-		(ParamFloat<px4::params::RDD_WHEEL_SPEED>) _param_rdd_wheel_speed,
-		(ParamFloat<px4::params::RDD_WHEEL_RADIUS>) _param_rdd_wheel_radius,
-		(ParamFloat<px4::params::COM_SPOOLUP_TIME>) _param_com_spoolup_time
+		(ParamFloat<px4::params::RD_ANG_SCALE>) _param_rd_ang_velocity_scale,
+		(ParamFloat<px4::params::RD_SPEED_SCALE>) _param_rd_speed_scale,
+		(ParamFloat<px4::params::RD_WHEEL_BASE>) _param_rd_wheel_base,
+		(ParamFloat<px4::params::RD_WHEEL_SPEED>) _param_rd_wheel_speed,
+		(ParamFloat<px4::params::RD_WHEEL_RADIUS>) _param_rd_wheel_radius,
+		(ParamFloat<px4::params::COM_SPOOLUP_TIME>) _param_com_spoolup_time,
+		(ParamFloat<px4::params::RD_P_SPEED>) _param_rd_p_gain_speed,
+		(ParamFloat<px4::params::RD_I_SPEED>) _param_rd_i_gain_speed,
+		(ParamFloat<px4::params::RD_P_ANG_VEL>) _param_rd_p_gain_angular_velocity,
+		(ParamFloat<px4::params::RD_I_ANG_VEL>) _param_rd_i_gain_angular_velocity,
+		(ParamInt<px4::params::CA_R_REV>) _param_r_rev
 	)
 };

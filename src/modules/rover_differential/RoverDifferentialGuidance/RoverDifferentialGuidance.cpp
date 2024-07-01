@@ -44,7 +44,8 @@ RoverDifferentialGuidance::RoverDifferentialGuidance(ModuleParams *parent) : Mod
 	pid_init(&_heading_p_controller, PID_MODE_DERIVATIV_NONE, 0.001f);
 }
 
-void RoverDifferentialGuidance::computeGuidance(float yaw, float angular_velocity, float dt)
+RoverDifferentialGuidance::differential_setpoint RoverDifferentialGuidance::computeGuidance(float yaw,
+		float angular_velocity, float dt)
 {
 	if (_position_setpoint_triplet_sub.updated()) {
 		_position_setpoint_triplet_sub.copy(&_position_setpoint_triplet);
@@ -85,8 +86,8 @@ void RoverDifferentialGuidance::computeGuidance(float yaw, float angular_velocit
 				_currentState = GuidanceState::DRIVING;
 			}
 
-			float minTurningSpeed = _param_rdd_min_turning_speed.get();
-			float headingPGain = _param_rdd_p_gain_heading.get();
+			float minTurningSpeed = _param_rd_min_turning_speed.get();
+			float headingPGain = _param_rd_p_gain_heading.get();
 
 			// Make sure we do not get stuck while turning as the error gets too small
 			if ((fabsf(_heading_error) < minTurningSpeed) && (headingPGain > 0.01f)) {
@@ -97,11 +98,11 @@ void RoverDifferentialGuidance::computeGuidance(float yaw, float angular_velocit
 		}
 
 	case GuidanceState::DRIVING: {
-			const float max_velocity = math::trajectory::computeMaxSpeedFromDistance(_param_rdd_max_jerk.get(),
-						   _param_rdd_max_accel.get(), distance_to_next_wp, 0.0f);
+			const float max_velocity = math::trajectory::computeMaxSpeedFromDistance(_param_rd_max_jerk.get(),
+						   _param_rd_max_accel.get(), distance_to_next_wp, 0.0f);
 			_forwards_velocity_smoothing.updateDurations(max_velocity);
 			_forwards_velocity_smoothing.updateTraj(dt);
-			desired_speed = math::interpolate<float>(abs(_heading_error), 0.1f, 0.8f,
+			desired_speed = math::interpolate<float>(fabsf(_heading_error), 0.1f, 0.8f,
 					_forwards_velocity_smoothing.getCurrentVelocity(), 0.0f);
 			break;
 		}
@@ -119,15 +120,14 @@ void RoverDifferentialGuidance::computeGuidance(float yaw, float angular_velocit
 	float angular_velocity_pid = pid_calculate(&_heading_p_controller, _heading_error, angular_velocity, 0,
 				     dt) + _heading_error;
 
-	rover_differential_setpoint_s output{};
-	output.speed = math::constrain(desired_speed, -_max_speed, _max_speed);
-	output.yaw_rate = math::constrain(angular_velocity_pid, -_max_angular_velocity, _max_angular_velocity);
-	output.closed_loop_speed_control = output.closed_loop_yaw_rate_control = true;
-	output.timestamp = hrt_absolute_time();
-
-	_rover_differential_setpoint_pub.publish(output);
-
 	_current_waypoint = current_waypoint;
+
+	differential_setpoint differential_setpoint_temp;
+	differential_setpoint_temp.speed = math::constrain(desired_speed, -_max_speed, _max_speed);
+	differential_setpoint_temp.yaw_rate = math::constrain(angular_velocity_pid, -_max_angular_velocity,
+					      _max_angular_velocity);
+	differential_setpoint_temp.closed_loop_speed_control = differential_setpoint_temp.closed_loop_yaw_rate_control = true;
+	return differential_setpoint_temp;
 }
 
 void RoverDifferentialGuidance::updateParams()
@@ -135,13 +135,13 @@ void RoverDifferentialGuidance::updateParams()
 	ModuleParams::updateParams();
 
 	pid_set_parameters(&_heading_p_controller,
-			   _param_rdd_p_gain_heading.get(),  // Proportional gain
+			   _param_rd_p_gain_heading.get(),  // Proportional gain
 			   0,  // Integral gain
 			   0,  // Derivative gain
 			   0,  // Integral limit
 			   200);  // Output limit
 
-	_forwards_velocity_smoothing.setMaxJerk(_param_rdd_max_jerk.get());
-	_forwards_velocity_smoothing.setMaxAccel(_param_rdd_max_accel.get());
+	_forwards_velocity_smoothing.setMaxJerk(_param_rd_max_jerk.get());
+	_forwards_velocity_smoothing.setMaxAccel(_param_rd_max_accel.get());
 	_forwards_velocity_smoothing.setMaxVel(_max_speed);
 }
