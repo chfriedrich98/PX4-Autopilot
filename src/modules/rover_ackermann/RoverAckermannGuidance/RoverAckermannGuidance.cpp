@@ -130,16 +130,14 @@ RoverAckermannGuidance::motor_setpoint RoverAckermannGuidance::computeGuidance(c
 			desired_speed = 0.f;
 
 		} else {
-			// Calculate desired speed
 			desired_speed = calcDesiredSpeed(_param_ra_miss_vel_def.get(), _param_ra_miss_vel_min.get(),
 							 _param_ra_miss_vel_gain.get(), distance_to_prev_wp, distance_to_curr_wp, _acceptance_radius,
 							 _prev_acceptance_radius, _param_ra_max_accel.get(), _param_ra_max_jerk.get(), nav_state);
 
-			// Calculate desired steering
-			_desired_steering = calcDesiredSteering(_curr_wp_ned, _prev_wp_ned, _curr_pos_ned, _param_ra_wheel_base.get(),
-								desired_speed, vehicle_yaw);
-			_desired_steering = math::constrain(_desired_steering, -_param_ra_max_steer_angle.get(),
-							    _param_ra_max_steer_angle.get());
+			_desired_steering = calcDesiredSteering(_pure_pursuit, _curr_wp_ned, _prev_wp_ned, _curr_pos_ned,
+								_param_ra_wheel_base.get(),
+								desired_speed, vehicle_yaw, _param_ra_max_steer_angle.get());
+
 		}
 	}
 
@@ -296,24 +294,29 @@ float RoverAckermannGuidance::calcDesiredSpeed(const float miss_vel_def, const f
 
 }
 
-float RoverAckermannGuidance::calcDesiredSteering(const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned,
-		const Vector2f &curr_pos_ned, const float wheel_base, const float desired_speed, const float vehicle_yaw)
+float RoverAckermannGuidance::calcDesiredSteering(PurePursuit &pure_pursuit, const Vector2f &curr_wp_ned,
+		const Vector2f &prev_wp_ned, const Vector2f &curr_pos_ned, const float wheel_base, const float desired_speed,
+		const float vehicle_yaw, const float max_steering)
 {
-	// Calculate desired steering to reach lookahead point
-	const float desired_heading = _pure_pursuit.calcDesiredHeading(curr_wp_ned, prev_wp_ned, curr_pos_ned,
+	const float desired_heading = pure_pursuit.calcDesiredHeading(curr_wp_ned, prev_wp_ned, curr_pos_ned,
 				      desired_speed);
-	const float lookahead_distance = _pure_pursuit.getLookaheadDistance();
+	const float lookahead_distance = pure_pursuit.getLookaheadDistance();
 	const float heading_error = matrix::wrap_pi(desired_heading - vehicle_yaw);
 	// For logging
 	_rover_ackermann_guidance_status.lookahead_distance = lookahead_distance;
 	_rover_ackermann_guidance_status.heading_error = (heading_error * 180.f) / (M_PI_F);
 
+	float desired_steering{0.f};
+
 	if (math::abs_t(heading_error) <= M_PI_2_F) {
-		return atanf(2 * wheel_base * sinf(heading_error) / lookahead_distance);
+		desired_steering = atanf(2 * wheel_base * sinf(heading_error) / lookahead_distance);
+
 
 	} else {
-		return atanf(2 * wheel_base * (sign(heading_error) * 1.0f + sinf(heading_error - sign(heading_error) * M_PI_2_F)) /
-			     lookahead_distance);
+		desired_steering = atanf(2 * wheel_base * (sign(heading_error) * 1.0f + sinf(heading_error -
+					 sign(heading_error) * M_PI_2_F)) / lookahead_distance);
 	}
+
+	return math::constrain(desired_steering, -max_steering, max_steering);
 
 }

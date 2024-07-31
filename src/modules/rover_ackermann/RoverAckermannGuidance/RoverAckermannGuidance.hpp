@@ -108,7 +108,7 @@ public:
 
 
 	/**
-	 * @brief Calculate and return desired speed
+	 * @brief Calculate and return desired speed [m/s]
 	 * @param miss_vel_def Default desired velocity for the rover during mission [m/s].
 	 * @param miss_vel_min Minimum desired velocity for the rover during mission [m/s].
 	 * @param miss_vel_gain Tuning parameter for the slow down effect during cornering [-].
@@ -125,16 +125,18 @@ public:
 			       float max_jerk, int nav_state);
 
 	/**
-	 * @brief Calculate and return desired steering angle
-	 * @param curr_wp_ned Current waypoint in NED frame.
-	 * @param prev_wp_ned Previous waypoint in NED frame.
-	 * @param curr_pos_ned Current position of the vehicle in NED frame.
-	 * @param wheel_base Rover wheelbase.
-	 * @param desired_speed Desired speed for the rover.
-	 * @param vehicle_yaw Current yaw of the rover.
+	 * @brief Calculate and return desired steering angle [rad]
+	 * @param pure_pursuit Pure pursuit class instance.
+	 * @param curr_wp_ned Current waypoint in NED frame [m].
+	 * @param prev_wp_ned Previous waypoint in NED frame [m].
+	 * @param curr_pos_ned Current position of the vehicle in NED frame [m].
+	 * @param wheel_base Rover wheelbase [m].
+	 * @param desired_speed Desired speed for the rover [m/s].
+	 * @param vehicle_yaw Current yaw of the rover [rad].
+	 * @param max_steering Maximum steering angle of the rover [rad].
 	 */
-	float calcDesiredSteering(const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned, const Vector2f &curr_pos_ned,
-				  float wheel_base, float desired_speed, float vehicle_yaw);
+	float calcDesiredSteering(PurePursuit &pure_pursuit, const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned,
+				  const Vector2f &curr_pos_ned, float wheel_base, float desired_speed, float vehicle_yaw, float max_steering);
 
 protected:
 	/**
