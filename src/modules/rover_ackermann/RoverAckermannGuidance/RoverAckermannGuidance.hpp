@@ -85,6 +85,11 @@ public:
 	motor_setpoint computeGuidance(int nav_state);
 
 	/**
+	 * @brief Update uORB subscriptions
+	 */
+	void updateSubscriptions();
+
+	/**
 	 * @brief Update global/NED waypoint coordinates and acceptance radius
 	 */
 	void updateWaypoints();
@@ -158,16 +163,19 @@ private:
 	uORB::Publication<position_controller_status_s>	_position_controller_status_pub{ORB_ID(position_controller_status)};
 	rover_ackermann_guidance_status_s _rover_ackermann_guidance_status{};
 
-
+	// Class instances
 	MapProjection _global_ned_proj_ref{}; // Transform global to NED coordinates.
 	PurePursuit _pure_pursuit{this}; // Pure pursuit library
 
 	// Rover variables
+	float _desired_steering{0.f};
+	float _vehicle_yaw{0.f};
+	float _desired_speed{0.f};
+	float _actual_speed{0.f};
 	Vector2d _curr_pos{};
 	Vector2f _curr_pos_ned{};
 	PID_t _pid_throttle;
 	hrt_abstime _timestamp{0};
-	float _desired_steering{0.f};
 
 	// Waypoint variables
 	Vector2d _curr_wp{};
@@ -179,6 +187,7 @@ private:
 	Vector2f _next_wp_ned{};
 	float _acceptance_radius{0.5f};
 	float _prev_acceptance_radius{0.5f};
+	bool _mission_finished{false};
 
 	// Parameters
 	DEFINE_PARAMETERS(

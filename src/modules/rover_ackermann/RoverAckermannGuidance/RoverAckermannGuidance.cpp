@@ -58,13 +58,78 @@ void RoverAckermannGuidance::updateParams()
 
 RoverAckermannGuidance::motor_setpoint RoverAckermannGuidance::computeGuidance(const int nav_state)
 {
-	// Initializations
-	float desired_speed{0.f};
-	float vehicle_yaw{0.f};
-	float actual_speed{0.f};
-	bool mission_finished{false};
+	updateSubscriptions();
 
-	// uORB subscriber updates
+	// Catch return to launch
+	if (nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_RTL) {
+		_mission_finished = get_distance_to_next_waypoint(_curr_pos(0), _curr_pos(1), _next_wp(0),
+				    _next_wp(1)) < _acceptance_radius;
+	}
+
+	// Guidance logic
+	if (_mission_finished) {
+		_desired_steering = 0.f;
+
+	} else {
+		const float distance_to_prev_wp = get_distance_to_next_waypoint(_curr_pos(0), _curr_pos(1),
+						  _prev_wp(0),
+						  _prev_wp(1));
+		const float distance_to_curr_wp = get_distance_to_next_waypoint(_curr_pos(0), _curr_pos(1),
+						  _curr_wp(0),
+						  _curr_wp(1));
+
+		if (distance_to_curr_wp < _acceptance_radius) { // Catch delay command
+			_desired_speed = 0.f;
+
+		} else {
+			_desired_speed = calcDesiredSpeed(_param_ra_miss_vel_def.get(), _param_ra_miss_vel_min.get(),
+							  _param_ra_miss_vel_gain.get(), distance_to_prev_wp, distance_to_curr_wp, _acceptance_radius,
+							  _prev_acceptance_radius, _param_ra_max_accel.get(), _param_ra_max_jerk.get(), nav_state);
+
+			_desired_steering = calcDesiredSteering(_pure_pursuit, _curr_wp_ned, _prev_wp_ned, _curr_pos_ned,
+								_param_ra_wheel_base.get(),
+								_desired_speed, _vehicle_yaw, _param_ra_max_steer_angle.get());
+
+		}
+	}
+
+	// Throttle PID
+	hrt_abstime timestamp_prev = _timestamp;
+	_timestamp = hrt_absolute_time();
+	const float dt = math::constrain(_timestamp - timestamp_prev, 1_ms, 5000_ms) * 1e-6f;
+	float throttle = 0.f;
+
+	if (_desired_speed < FLT_EPSILON) {
+		pid_reset_integral(&_pid_throttle);
+
+	} else {
+		throttle = pid_calculate(&_pid_throttle, _desired_speed, _actual_speed, 0,
+					 dt);
+	}
+
+	if (_param_ra_max_speed.get() > 0.f) { // Feed-forward term
+		throttle += math::interpolate<float>(_desired_speed,
+						     0.f, _param_ra_max_speed.get(),
+						     0.f, 1.f);
+	}
+
+	// Publish ackermann controller status (logging)
+	_rover_ackermann_guidance_status.timestamp = _timestamp;
+	_rover_ackermann_guidance_status.desired_speed = _desired_speed;
+	_rover_ackermann_guidance_status.pid_throttle_integral = _pid_throttle.integral;
+	_rover_ackermann_guidance_status_pub.publish(_rover_ackermann_guidance_status);
+
+	// Return motor setpoints
+	motor_setpoint motor_setpoint_temp;
+	motor_setpoint_temp.steering = math::interpolate<float>(_desired_steering, -_param_ra_max_steer_angle.get(),
+				       _param_ra_max_steer_angle.get(),
+				       -1.f, 1.f);
+	motor_setpoint_temp.throttle = math::constrain(throttle, 0.f, 1.f);
+	return motor_setpoint_temp;
+}
+
+void RoverAckermannGuidance::updateSubscriptions()
+{
 	if (_vehicle_global_position_sub.updated()) {
 		vehicle_global_position_s vehicle_global_position{};
 		_vehicle_global_position_sub.copy(&vehicle_global_position);
@@ -82,7 +147,7 @@ RoverAckermannGuidance::motor_setpoint RoverAckermannGuidance::computeGuidance(c
 
 		_curr_pos_ned = Vector2f(local_position.x, local_position.y);
 		const Vector3f rover_velocity = {local_position.vx, local_position.vy, local_position.vz};
-		actual_speed = rover_velocity.norm();
+		_actual_speed = rover_velocity.norm();
 	}
 
 	if (_home_position_sub.updated()) {
@@ -99,81 +164,14 @@ RoverAckermannGuidance::motor_setpoint RoverAckermannGuidance::computeGuidance(c
 		vehicle_attitude_s vehicle_attitude{};
 		_vehicle_attitude_sub.copy(&vehicle_attitude);
 		matrix::Quatf vehicle_attitude_quaternion = Quatf(vehicle_attitude.q);
-		vehicle_yaw = matrix::Eulerf(vehicle_attitude_quaternion).psi();
+		_vehicle_yaw = matrix::Eulerf(vehicle_attitude_quaternion).psi();
 	}
 
 	if (_mission_result_sub.updated()) {
 		mission_result_s mission_result{};
 		_mission_result_sub.copy(&mission_result);
-		mission_finished = mission_result.finished;
+		_mission_finished = mission_result.finished;
 	}
-
-	if (nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_RTL
-	    && get_distance_to_next_waypoint(_curr_pos(0), _curr_pos(1), _next_wp(0),
-					     _next_wp(1)) < _acceptance_radius) { // Return to launch
-		mission_finished = true;
-	}
-
-	// Guidance logic
-	if (mission_finished) {
-		_desired_steering = 0.f;
-
-	} else {
-		const float distance_to_prev_wp = get_distance_to_next_waypoint(_curr_pos(0), _curr_pos(1),
-						  _prev_wp(0),
-						  _prev_wp(1));
-		const float distance_to_curr_wp = get_distance_to_next_waypoint(_curr_pos(0), _curr_pos(1),
-						  _curr_wp(0),
-						  _curr_wp(1));
-
-		if (distance_to_curr_wp < _acceptance_radius) { // Catch delay command
-			desired_speed = 0.f;
-
-		} else {
-			desired_speed = calcDesiredSpeed(_param_ra_miss_vel_def.get(), _param_ra_miss_vel_min.get(),
-							 _param_ra_miss_vel_gain.get(), distance_to_prev_wp, distance_to_curr_wp, _acceptance_radius,
-							 _prev_acceptance_radius, _param_ra_max_accel.get(), _param_ra_max_jerk.get(), nav_state);
-
-			_desired_steering = calcDesiredSteering(_pure_pursuit, _curr_wp_ned, _prev_wp_ned, _curr_pos_ned,
-								_param_ra_wheel_base.get(),
-								desired_speed, vehicle_yaw, _param_ra_max_steer_angle.get());
-
-		}
-	}
-
-	// Throttle PID
-	hrt_abstime timestamp_prev = _timestamp;
-	_timestamp = hrt_absolute_time();
-	const float dt = math::constrain(_timestamp - timestamp_prev, 1_ms, 5000_ms) * 1e-6f;
-	float throttle = 0.f;
-
-	if (desired_speed < FLT_EPSILON) {
-		pid_reset_integral(&_pid_throttle);
-
-	} else {
-		throttle = pid_calculate(&_pid_throttle, desired_speed, actual_speed, 0,
-					 dt);
-	}
-
-	if (_param_ra_max_speed.get() > 0.f) { // Feed-forward term
-		throttle += math::interpolate<float>(desired_speed,
-						     0.f, _param_ra_max_speed.get(),
-						     0.f, 1.f);
-	}
-
-	// Publish ackermann controller status (logging)
-	_rover_ackermann_guidance_status.timestamp = _timestamp;
-	_rover_ackermann_guidance_status.desired_speed = desired_speed;
-	_rover_ackermann_guidance_status.pid_throttle_integral = _pid_throttle.integral;
-	_rover_ackermann_guidance_status_pub.publish(_rover_ackermann_guidance_status);
-
-	// Return motor setpoints
-	motor_setpoint motor_setpoint_temp;
-	motor_setpoint_temp.steering = math::interpolate<float>(_desired_steering, -_param_ra_max_steer_angle.get(),
-				       _param_ra_max_steer_angle.get(),
-				       -1.f, 1.f);
-	motor_setpoint_temp.throttle = math::constrain(throttle, 0.f, 1.f);
-	return motor_setpoint_temp;
 }
 
 void RoverAckermannGuidance::updateWaypoints()
