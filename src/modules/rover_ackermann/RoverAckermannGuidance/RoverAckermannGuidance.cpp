@@ -131,41 +131,9 @@ RoverAckermannGuidance::motor_setpoint RoverAckermannGuidance::computeGuidance(c
 
 		} else {
 			// Calculate desired speed
-			if (_param_ra_miss_vel_min.get() > 0.f  && _param_ra_miss_vel_min.get() < _param_ra_miss_vel_def.get()
-			    && _param_ra_miss_vel_gain.get() > FLT_EPSILON) { // Cornering slow down effect
-				if (distance_to_prev_wp <= _prev_acceptance_radius && _prev_acceptance_radius > FLT_EPSILON) {
-					const float cornering_speed = _param_ra_miss_vel_gain.get() / _prev_acceptance_radius;
-					desired_speed = math::constrain(cornering_speed, _param_ra_miss_vel_min.get(), _param_ra_miss_vel_def.get());
-
-				} else if (distance_to_curr_wp <= _acceptance_radius && _acceptance_radius > FLT_EPSILON) {
-					const float cornering_speed = _param_ra_miss_vel_gain.get() / _acceptance_radius;
-					desired_speed = math::constrain(cornering_speed, _param_ra_miss_vel_min.get(), _param_ra_miss_vel_def.get());
-
-				} else { // Straight line speed
-					if (_param_ra_max_accel.get() > FLT_EPSILON && _param_ra_max_jerk.get() > FLT_EPSILON
-					    && _acceptance_radius > FLT_EPSILON) {
-						float max_velocity{0.f};
-
-						if (nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_RTL) {
-							max_velocity = math::trajectory::computeMaxSpeedFromDistance(_param_ra_max_jerk.get(),
-									_param_ra_max_accel.get(), distance_to_curr_wp, 0.f);
-
-						} else {
-							const float cornering_speed = _param_ra_miss_vel_gain.get() / _acceptance_radius;
-							max_velocity = math::trajectory::computeMaxSpeedFromDistance(_param_ra_max_jerk.get(),
-									_param_ra_max_accel.get(), distance_to_curr_wp - _acceptance_radius, cornering_speed);
-						}
-
-						desired_speed = math::constrain(max_velocity, _param_ra_miss_vel_min.get(), _param_ra_miss_vel_def.get());
-
-					} else {
-						desired_speed = _param_ra_miss_vel_def.get();
-					}
-				}
-
-			} else {
-				desired_speed = _param_ra_miss_vel_def.get();
-			}
+			desired_speed = calcDesiredSpeed(_param_ra_miss_vel_def.get(), _param_ra_miss_vel_min.get(),
+							 _param_ra_miss_vel_gain.get(), distance_to_prev_wp, distance_to_curr_wp, _acceptance_radius,
+							 _prev_acceptance_radius, _param_ra_max_accel.get(), _param_ra_max_jerk.get(), nav_state);
 
 			// Calculate desired steering
 			_desired_steering = calcDesiredSteering(_curr_wp_ned, _prev_wp_ned, _curr_pos_ned, _param_ra_wheel_base.get(),
@@ -284,6 +252,48 @@ float RoverAckermannGuidance::updateAcceptanceRadius(const Vector2f &curr_wp_ned
 	pos_ctrl_status.timestamp = hrt_absolute_time();
 	_position_controller_status_pub.publish(pos_ctrl_status);
 	return acceptance_radius;
+}
+
+float RoverAckermannGuidance::calcDesiredSpeed(const float miss_vel_def, const float miss_vel_min,
+		const float miss_vel_gain, const float distance_to_prev_wp, const float distance_to_curr_wp, const float acc_rad,
+		const float prev_acc_rad, const float max_accel, const float max_jerk, const int nav_state)
+{
+	// Catch improper values
+	if (miss_vel_min < 0.f  || miss_vel_min > miss_vel_def || miss_vel_gain < FLT_EPSILON) {
+		return miss_vel_def;
+	}
+
+	// Cornering slow down effect
+	if (distance_to_prev_wp <= prev_acc_rad && prev_acc_rad > FLT_EPSILON) {
+		const float cornering_speed = miss_vel_gain / prev_acc_rad;
+		return math::constrain(cornering_speed, miss_vel_min, miss_vel_def);
+
+	} else if (distance_to_curr_wp <= acc_rad && acc_rad > FLT_EPSILON) {
+		const float cornering_speed = miss_vel_gain / acc_rad;
+		return math::constrain(cornering_speed, miss_vel_min, miss_vel_def);
+
+	}
+
+	// Straight line speed
+	if (max_accel > FLT_EPSILON && max_jerk > FLT_EPSILON && acc_rad > FLT_EPSILON) {
+		float max_velocity{0.f};
+
+		if (nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_RTL) {
+			max_velocity = math::trajectory::computeMaxSpeedFromDistance(max_jerk,
+					max_accel, distance_to_curr_wp, 0.f);
+
+		} else {
+			const float cornering_speed = miss_vel_gain / acc_rad;
+			max_velocity = math::trajectory::computeMaxSpeedFromDistance(max_jerk,
+					max_accel, distance_to_curr_wp - acc_rad, cornering_speed);
+		}
+
+		return math::constrain(max_velocity, miss_vel_min, miss_vel_def);
+
+	} else {
+		return miss_vel_def;
+	}
+
 }
 
 float RoverAckermannGuidance::calcDesiredSteering(const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned,

@@ -106,8 +106,26 @@ public:
 				     const Vector2f &next_wp_ned, float default_acceptance_radius, float acceptance_radius_gain,
 				     float acceptance_radius_max, float wheel_base, float max_steer_angle);
 
+
 	/**
-	 * @brief Calculate and return desired steering input
+	 * @brief Calculate and return desired speed
+	 * @param miss_vel_def Default desired velocity for the rover during mission [m/s].
+	 * @param miss_vel_min Minimum desired velocity for the rover during mission [m/s].
+	 * @param miss_vel_gain Tuning parameter for the slow down effect during cornering [-].
+	 * @param distance_to_prev_wp Distance to the previous waypoint [m].
+	 * @param distance_to_curr_wp Distance to the current waypoint [m].
+	 * @param acc_rad Acceptance radius of the current waypoint [m].
+	 * @param prev_acc_rad Acceptance radius of the previous waypoint [m].
+	 * @param max_accel Maximum allowed acceleration for the rover [m/s^2].
+	 * @param max_jerk Maximum allowed jerk for the rover [m/s^3].
+	 * @param nav_state Current nav_state of the rover.
+	 */
+	float calcDesiredSpeed(float miss_vel_def, float miss_vel_min, float miss_vel_gain,
+			       float distance_to_prev_wp, float distance_to_curr_wp, float acc_rad, float prev_acc_rad, float max_accel,
+			       float max_jerk, int nav_state);
+
+	/**
+	 * @brief Calculate and return desired steering angle
 	 * @param curr_wp_ned Current waypoint in NED frame.
 	 * @param prev_wp_ned Previous waypoint in NED frame.
 	 * @param curr_pos_ned Current position of the vehicle in NED frame.
