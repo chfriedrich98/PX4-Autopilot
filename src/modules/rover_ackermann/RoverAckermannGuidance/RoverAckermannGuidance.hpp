@@ -98,14 +98,14 @@ public:
 	 * @brief Returns and publishes the  acceptance radius for current waypoint based on the angle between a line segment
 	 * from the previous to the current waypoint/current to the next waypoint and maximum steer angle of
 	 * the vehicle.
-	 * @param curr_wp_ned Current waypoint in NED frame.
-	 * @param prev_wp_ned Previous waypoint in NED frame.
-	 * @param next_wp_ned Next waypoint in NED frame.
-	 * @param default_acceptance_radius Default acceptance radius for waypoints.
-	 * @param acceptance_radius_gain Scaling of the geometric optimal acceptance radius for the rover to cut corners.
-	 * @param acceptance_radius_max Maximum value for the acceptance radius.
-	 * @param wheel_base Rover wheelbase.
-	 * @param max_steer_angle Rover maximum steer angle.
+	 * @param curr_wp_ned Current waypoint in NED frame [m].
+	 * @param prev_wp_ned Previous waypoint in NED frame [m].
+	 * @param next_wp_ned Next waypoint in NED frame [m].
+	 * @param default_acceptance_radius Default acceptance radius for waypoints [m].
+	 * @param acceptance_radius_gain Tuning parameter that scales the geometric optimal acceptance radius for the corner cutting [-].
+	 * @param acceptance_radius_max Maximum value for the acceptance radius [m].
+	 * @param wheel_base Rover wheelbase [m].
+	 * @param max_steer_angle Rover maximum steer angle [rad].
 	 */
 	float updateAcceptanceRadius(const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned,
 				     const Vector2f &next_wp_ned, float default_acceptance_radius, float acceptance_radius_gain,

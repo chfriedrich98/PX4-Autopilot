@@ -67,30 +67,29 @@ RoverAckermannGuidance::motor_setpoint RoverAckermannGuidance::computeGuidance(c
 	}
 
 	// Guidance logic
+	const float distance_to_curr_wp = get_distance_to_next_waypoint(_curr_pos(0), _curr_pos(1),
+					  _curr_wp(0),
+					  _curr_wp(1));
+
 	if (_mission_finished) {
 		_desired_steering = 0.f;
+		_desired_speed = 0.f;
+
+	} else if (distance_to_curr_wp < _acceptance_radius) { // Catch delay command
+		_desired_speed = 0.f;
 
 	} else {
 		const float distance_to_prev_wp = get_distance_to_next_waypoint(_curr_pos(0), _curr_pos(1),
 						  _prev_wp(0),
 						  _prev_wp(1));
-		const float distance_to_curr_wp = get_distance_to_next_waypoint(_curr_pos(0), _curr_pos(1),
-						  _curr_wp(0),
-						  _curr_wp(1));
+		_desired_speed = calcDesiredSpeed(_param_ra_miss_vel_def.get(), _param_ra_miss_vel_min.get(),
+						  _param_ra_miss_vel_gain.get(), distance_to_prev_wp, distance_to_curr_wp, _acceptance_radius,
+						  _prev_acceptance_radius, _param_ra_max_accel.get(), _param_ra_max_jerk.get(), nav_state);
 
-		if (distance_to_curr_wp < _acceptance_radius) { // Catch delay command
-			_desired_speed = 0.f;
+		_desired_steering = calcDesiredSteering(_pure_pursuit, _curr_wp_ned, _prev_wp_ned, _curr_pos_ned,
+							_param_ra_wheel_base.get(),
+							_desired_speed, _vehicle_yaw, _param_ra_max_steer_angle.get());
 
-		} else {
-			_desired_speed = calcDesiredSpeed(_param_ra_miss_vel_def.get(), _param_ra_miss_vel_min.get(),
-							  _param_ra_miss_vel_gain.get(), distance_to_prev_wp, distance_to_curr_wp, _acceptance_radius,
-							  _prev_acceptance_radius, _param_ra_max_accel.get(), _param_ra_max_jerk.get(), nav_state);
-
-			_desired_steering = calcDesiredSteering(_pure_pursuit, _curr_wp_ned, _prev_wp_ned, _curr_pos_ned,
-								_param_ra_wheel_base.get(),
-								_desired_speed, _vehicle_yaw, _param_ra_max_steer_angle.get());
-
-		}
 	}
 
 	// Throttle PID
