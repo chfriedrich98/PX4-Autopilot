@@ -42,6 +42,7 @@ RoverAckermannGuidance::RoverAckermannGuidance(ModuleParams *parent) : ModulePar
 {
 	_rover_ackermann_guidance_status_pub.advertise();
 	updateParams();
+	_mission_speed = _param_ra_miss_vel_def.get();
 	pid_init(&_pid_throttle, PID_MODE_DERIVATIV_NONE, 0.001f);
 }
 
@@ -81,7 +82,7 @@ RoverAckermannGuidance::motor_setpoint RoverAckermannGuidance::computeGuidance(c
 		const float distance_to_prev_wp = get_distance_to_next_waypoint(_curr_pos(0), _curr_pos(1),
 						  _prev_wp(0), _prev_wp(1));
 
-		_desired_speed = calcDesiredSpeed(_param_ra_miss_vel_def.get(), _param_ra_miss_vel_min.get(),
+		_desired_speed = calcDesiredSpeed(_mission_speed, _param_ra_miss_vel_min.get(),
 						  _param_ra_miss_vel_gain.get(), distance_to_prev_wp, distance_to_curr_wp, _acceptance_radius,
 						  _prev_acceptance_radius, _param_ra_max_accel.get(), _param_ra_max_jerk.get(), nav_state);
 
@@ -179,6 +180,9 @@ void RoverAckermannGuidance::updateWaypoints()
 	if (position_setpoint_triplet.current.valid && PX4_ISFINITE(position_setpoint_triplet.current.lat)
 	    && PX4_ISFINITE(position_setpoint_triplet.current.lon)) {
 		_curr_wp = Vector2d(position_setpoint_triplet.current.lat, position_setpoint_triplet.current.lon);
+		const float cruising_speed = position_setpoint_triplet.current.cruising_speed;
+		_mission_speed = (cruising_speed > FLT_EPSILON && PX4_ISFINITE(cruising_speed)) ?
+				 cruising_speed : _param_ra_miss_vel_def.get();
 
 	} else {
 		_curr_wp = Vector2d(0, 0);
@@ -247,23 +251,23 @@ float RoverAckermannGuidance::updateAcceptanceRadius(const Vector2f &curr_wp_ned
 	return acceptance_radius;
 }
 
-float RoverAckermannGuidance::calcDesiredSpeed(const float miss_vel_def, const float miss_vel_min,
+float RoverAckermannGuidance::calcDesiredSpeed(const float miss_speed_def, const float miss_vel_min,
 		const float miss_vel_gain, const float distance_to_prev_wp, const float distance_to_curr_wp, const float acc_rad,
 		const float prev_acc_rad, const float max_accel, const float max_jerk, const int nav_state)
 {
 	// Catch improper values
-	if (miss_vel_min < 0.f  || miss_vel_min > miss_vel_def || miss_vel_gain < FLT_EPSILON) {
-		return miss_vel_def;
+	if (miss_vel_min < 0.f  || miss_vel_min > miss_speed_def || miss_vel_gain < FLT_EPSILON) {
+		return miss_speed_def;
 	}
 
 	// Cornering slow down effect
 	if (distance_to_prev_wp <= prev_acc_rad && prev_acc_rad > FLT_EPSILON) {
 		const float cornering_speed = miss_vel_gain / prev_acc_rad;
-		return math::constrain(cornering_speed, miss_vel_min, miss_vel_def);
+		return math::constrain(cornering_speed, miss_vel_min, miss_speed_def);
 
 	} else if (distance_to_curr_wp <= acc_rad && acc_rad > FLT_EPSILON) {
 		const float cornering_speed = miss_vel_gain / acc_rad;
-		return math::constrain(cornering_speed, miss_vel_min, miss_vel_def);
+		return math::constrain(cornering_speed, miss_vel_min, miss_speed_def);
 
 	}
 
@@ -281,10 +285,10 @@ float RoverAckermannGuidance::calcDesiredSpeed(const float miss_vel_def, const f
 					max_accel, distance_to_curr_wp - acc_rad, cornering_speed);
 		}
 
-		return math::constrain(max_velocity, miss_vel_min, miss_vel_def);
+		return math::constrain(max_velocity, miss_vel_min, miss_speed_def);
 
 	} else {
-		return miss_vel_def;
+		return miss_speed_def;
 	}
 
 }

@@ -197,6 +197,7 @@ private:
 	float _acceptance_radius{0.5f};
 	float _prev_acceptance_radius{0.5f};
 	bool _mission_finished{false};
+	float _mission_speed{0.f};
 
 	// Parameters
 	DEFINE_PARAMETERS(
