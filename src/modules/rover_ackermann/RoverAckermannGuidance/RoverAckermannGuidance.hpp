@@ -73,50 +73,22 @@ public:
 	RoverAckermannGuidance(ModuleParams *parent);
 	~RoverAckermannGuidance() = default;
 
+	/**
+	 * @brief Struct for steering and throttle setpoints.
+	 * @param steering Steering setpoint.
+	 * @param throttle Throttle setpoint.
+	 */
 	struct motor_setpoint {
 		float steering{0.f};
 		float throttle{0.f};
 	};
 
 	/**
-	 * @brief Compute guidance for ackermann rover and return motor_setpoint for throttle and steering.
-	 * @param nav_state Vehicle navigation state
+	 * @brief Compute guidance for Ackermann rover.
+	 * @param nav_state Vehicle navigation state.
+	 * @return Motor setpoints for throttle and steering.
 	 */
 	motor_setpoint computeGuidance(int nav_state);
-
-	/**
-	 * @brief Update global/NED waypoint coordinates and acceptance radius
-	 */
-	void updateWaypoints();
-
-	/**
-	 * @brief Returns and publishes the  acceptance radius for current waypoint based on the angle between a line segment
-	 * from the previous to the current waypoint/current to the next waypoint and maximum steer angle of
-	 * the vehicle.
-	 * @param curr_wp_ned Current waypoint in NED frame.
-	 * @param prev_wp_ned Previous waypoint in NED frame.
-	 * @param next_wp_ned Next waypoint in NED frame.
-	 * @param default_acceptance_radius Default acceptance radius for waypoints.
-	 * @param acceptance_radius_gain Scaling of the geometric optimal acceptance radius for the rover to cut corners.
-	 * @param acceptance_radius_max Maximum value for the acceptance radius.
-	 * @param wheel_base Rover wheelbase.
-	 * @param max_steer_angle Rover maximum steer angle.
-	 */
-	float updateAcceptanceRadius(const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned,
-				     const Vector2f &next_wp_ned, float default_acceptance_radius, float acceptance_radius_gain,
-				     float acceptance_radius_max, float wheel_base, float max_steer_angle);
-
-	/**
-	 * @brief Calculate and return desired steering input
-	 * @param curr_wp_ned Current waypoint in NED frame.
-	 * @param prev_wp_ned Previous waypoint in NED frame.
-	 * @param curr_pos_ned Current position of the vehicle in NED frame.
-	 * @param wheel_base Rover wheelbase.
-	 * @param desired_speed Desired speed for the rover.
-	 * @param vehicle_yaw Current yaw of the rover.
-	 */
-	float calcDesiredSteering(const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned, const Vector2f &curr_pos_ned,
-				  float wheel_base, float desired_speed, float vehicle_yaw);
 
 protected:
 	/**
@@ -125,6 +97,68 @@ protected:
 	void updateParams() override;
 
 private:
+	/**
+	 * @brief Update uORB subscriptions
+	 */
+	void updateSubscriptions();
+
+	/**
+	 * @brief Update global/NED waypoint coordinates and acceptance radius.
+	 */
+	void updateWaypoints();
+
+	/**
+	 * @brief Returns and publishes the  acceptance radius for current waypoint based on the angle between a line segment
+	 * from the previous to the current waypoint/current to the next waypoint and maximum steer angle of
+	 * the vehicle.
+	 * @param curr_wp_ned Current waypoint in NED frame [m].
+	 * @param prev_wp_ned Previous waypoint in NED frame [m].
+	 * @param next_wp_ned Next waypoint in NED frame [m].
+	 * @param default_acceptance_radius Default acceptance radius for waypoints [m].
+	 * @param acceptance_radius_gain Tuning parameter that scales the geometric optimal acceptance radius for the corner cutting [-].
+	 * @param acceptance_radius_max Maximum value for the acceptance radius [m].
+	 * @param wheel_base Rover wheelbase [m].
+	 * @param max_steer_angle Rover maximum steer angle [rad].
+	 * @return Updated acceptance radius [m].
+	 */
+	float updateAcceptanceRadius(const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned,
+				     const Vector2f &next_wp_ned, float default_acceptance_radius, float acceptance_radius_gain,
+				     float acceptance_radius_max, float wheel_base, float max_steer_angle);
+
+
+	/**
+	 * @brief Calculate and return desired speed [m/s]
+	 * @param miss_vel_def Default desired velocity for the rover during mission [m/s].
+	 * @param miss_vel_min Minimum desired velocity for the rover during mission [m/s].
+	 * @param miss_vel_gain Tuning parameter for the slow down effect during cornering [-].
+	 * @param distance_to_prev_wp Distance to the previous waypoint [m].
+	 * @param distance_to_curr_wp Distance to the current waypoint [m].
+	 * @param acc_rad Acceptance radius of the current waypoint [m].
+	 * @param prev_acc_rad Acceptance radius of the previous waypoint [m].
+	 * @param max_accel Maximum allowed acceleration for the rover [m/s^2].
+	 * @param max_jerk Maximum allowed jerk for the rover [m/s^3].
+	 * @param nav_state Current nav_state of the rover.
+	 * @return Speed setpoint for the rover [m/s].
+	 */
+	float calcDesiredSpeed(float miss_vel_def, float miss_vel_min, float miss_vel_gain,
+			       float distance_to_prev_wp, float distance_to_curr_wp, float acc_rad, float prev_acc_rad, float max_accel,
+			       float max_jerk, int nav_state);
+
+	/**
+	 * @brief Calculate and return desired steering angle [rad]
+	 * @param pure_pursuit Pure pursuit class instance.
+	 * @param curr_wp_ned Current waypoint in NED frame [m].
+	 * @param prev_wp_ned Previous waypoint in NED frame [m].
+	 * @param curr_pos_ned Current position of the vehicle in NED frame [m].
+	 * @param wheel_base Rover wheelbase [m].
+	 * @param desired_speed Desired speed for the rover [m/s].
+	 * @param vehicle_yaw Current yaw of the rover [rad].
+	 * @param max_steering Maximum steering angle of the rover [rad].
+	 * @return Steering setpoint for the rover [rad].
+	 */
+	float calcDesiredSteering(PurePursuit &pure_pursuit, const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned,
+				  const Vector2f &curr_pos_ned, float wheel_base, float desired_speed, float vehicle_yaw, float max_steering);
+
 	// uORB subscriptions
 	uORB::Subscription _position_setpoint_triplet_sub{ORB_ID(position_setpoint_triplet)};
 	uORB::Subscription _vehicle_global_position_sub{ORB_ID(vehicle_global_position)};
@@ -138,16 +172,19 @@ private:
 	uORB::Publication<position_controller_status_s>	_position_controller_status_pub{ORB_ID(position_controller_status)};
 	rover_ackermann_guidance_status_s _rover_ackermann_guidance_status{};
 
-
+	// Class instances
 	MapProjection _global_ned_proj_ref{}; // Transform global to NED coordinates.
 	PurePursuit _pure_pursuit{this}; // Pure pursuit library
 
 	// Rover variables
+	float _desired_steering{0.f};
+	float _vehicle_yaw{0.f};
+	float _desired_speed{0.f};
+	float _actual_speed{0.f};
 	Vector2d _curr_pos{};
 	Vector2f _curr_pos_ned{};
 	PID_t _pid_throttle;
 	hrt_abstime _timestamp{0};
-	float _desired_steering{0.f};
 
 	// Waypoint variables
 	Vector2d _curr_wp{};
@@ -159,6 +196,7 @@ private:
 	Vector2f _next_wp_ned{};
 	float _acceptance_radius{0.5f};
 	float _prev_acceptance_radius{0.5f};
+	bool _mission_finished{false};
 
 	// Parameters
 	DEFINE_PARAMETERS(
