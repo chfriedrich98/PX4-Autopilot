@@ -52,10 +52,12 @@
 #include <uORB/topics/actuator_servos.h>
 #include <uORB/topics/rover_ackermann_status.h>
 #include <uORB/topics/vehicle_local_position.h>
+#include <uORB/topics/vehicle_acceleration.h>
 
 
 // Standard library includes
 #include <math.h>
+#include <lib/pid/pid.h>
 
 // Local includes
 #include "RoverAckermannGuidance/RoverAckermannGuidance.hpp"
@@ -94,6 +96,7 @@ private:
 	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _local_position_sub{ORB_ID(vehicle_local_position)};
+	uORB::Subscription _vehicle_acceleration_sub{ORB_ID(vehicle_acceleration)};
 
 	// uORB publications
 	uORB::PublicationMulti<actuator_motors_s> _actuator_motors_pub{ORB_ID(actuator_motors)};
@@ -111,6 +114,9 @@ private:
 	SlewRate<float> _steering_with_rate_limit{0.f};
 	SlewRate<float> _throttle_with_accel_limit{0.f};
 	bool _armed{false};
+	float _lat_accel{0.f};
+	float _lat_accel_setpoint{0.f};
+	PID_t _pid_lat_accel;
 
 	// Parameters
 	DEFINE_PARAMETERS(
@@ -118,6 +124,10 @@ private:
 		(ParamFloat<px4::params::RA_MAX_STR_ANG>) _param_ra_max_steer_angle,
 		(ParamFloat<px4::params::RA_MAX_SPEED>) _param_ra_max_speed,
 		(ParamFloat<px4::params::RA_MAX_ACCEL>) _param_ra_max_accel,
+		(ParamFloat<px4::params::RA_WHEEL_BASE>) _param_ra_wheel_base,
+		(ParamFloat<px4::params::RA_MAX_LAT_ACCEL>) _param_ra_max_lat_accel,
+		(ParamFloat<px4::params::RA_LAT_ACCEL_P>) _param_ra_lat_accel_p,
+		(ParamFloat<px4::params::RA_LAT_ACCEL_I>) _param_ra_lat_accel_i,
 		(ParamFloat<px4::params::RA_MAX_STR_RATE>) _param_ra_max_steering_rate
 	)
 };

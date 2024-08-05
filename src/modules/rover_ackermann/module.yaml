@@ -173,3 +173,34 @@ parameters:
         increment: 0.01
         decimal: 2
         default: -1
+
+      RA_MAX_LAT_ACCEL:
+        description:
+          short: Maximum lateral acceleration for the rover
+        type: float
+        unit: m/s^2
+        min: 0.1
+        max: 1000
+        increment: 0.01
+        decimal: 2
+        default: 0.1
+
+      RA_LAT_ACCEL_P:
+        description:
+          short: Proportional gain for lateral acceleration controller
+        type: float
+        min: 0
+        max: 100
+        increment: 0.01
+        decimal: 2
+        default: 1
+
+      RA_LAT_ACCEL_I:
+        description:
+          short: Integral gain for lateral acceleration controller
+        type: float
+        min: 0
+        max: 100
+        increment: 0.01
+        decimal: 2
+        default: 0

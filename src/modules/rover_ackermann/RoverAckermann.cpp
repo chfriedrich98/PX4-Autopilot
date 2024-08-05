@@ -42,6 +42,7 @@ RoverAckermann::RoverAckermann() :
 {
 	_rover_ackermann_status_pub.advertise();
 	updateParams();
+	pid_init(&_pid_lat_accel, PID_MODE_DERIVATIV_NONE, 0.001f);
 }
 
 bool RoverAckermann::init()
@@ -53,6 +54,14 @@ bool RoverAckermann::init()
 void RoverAckermann::updateParams()
 {
 	ModuleParams::updateParams();
+
+	// PID
+	pid_set_parameters(&_pid_lat_accel,
+			   0.1, // Proportional gain
+			   0, // Integral gain
+			   0, // Derivative gain
+			   100, // Integral limit
+			   100); // Output limit
 
 	// Update slew rates
 	if (_param_ra_max_accel.get() > FLT_EPSILON && _param_ra_max_speed.get() > FLT_EPSILON) {
@@ -92,6 +101,12 @@ void RoverAckermann::Run()
 		_actual_speed = rover_velocity.norm();
 	}
 
+	if (_vehicle_acceleration_sub.updated()) {
+		vehicle_acceleration_s vehicle_acceleration{};
+		_vehicle_acceleration_sub.copy(&vehicle_acceleration);
+		_lat_accel = vehicle_acceleration.xyz[1];
+	}
+
 	// Timestamps
 	hrt_abstime timestamp_prev = _timestamp;
 	_timestamp = hrt_absolute_time();
@@ -105,6 +120,21 @@ void RoverAckermann::Run()
 
 				if (_manual_control_setpoint_sub.update(&manual_control_setpoint)) {
 					_motor_setpoint.steering = manual_control_setpoint.roll;
+					_motor_setpoint.throttle =  manual_control_setpoint.throttle;
+				}
+
+			} break;
+
+		case vehicle_status_s::NAVIGATION_STATE_ACRO: {
+				manual_control_setpoint_s manual_control_setpoint{};
+
+				if (_manual_control_setpoint_sub.update(&manual_control_setpoint)) {
+					_lat_accel_setpoint = math::interpolate(manual_control_setpoint.roll, -1.f, 1.f,
+										-_param_ra_max_lat_accel.get(), _param_ra_max_lat_accel.get());
+					const float desired_steering = asinf(math::constrain(_param_ra_wheel_base.get() * _lat_accel_setpoint / powf(
+							_actual_speed, 2.f), -1.f, 1.f)) + pid_calculate(&_pid_lat_accel, _lat_accel_setpoint, _lat_accel, 0, dt);
+					_motor_setpoint.steering = math::interpolate(desired_steering, -_param_ra_max_steer_angle.get(),
+								   _param_ra_max_steer_angle.get(), -1.f, 1.f);
 					_motor_setpoint.throttle =  manual_control_setpoint.throttle;
 				}
 
@@ -153,6 +183,8 @@ void RoverAckermann::Run()
 		rover_ackermann_status.throttle_setpoint = _motor_setpoint.throttle;
 		rover_ackermann_status.steering_setpoint = _motor_setpoint.steering;
 		rover_ackermann_status.actual_speed = _actual_speed;
+		rover_ackermann_status.lateral_acceleration = _lat_accel;
+		rover_ackermann_status.lateral_acceleration_setpoint = _lat_accel_setpoint;
 		_rover_ackermann_status_pub.publish(rover_ackermann_status);
 
 		// Publish to motor
