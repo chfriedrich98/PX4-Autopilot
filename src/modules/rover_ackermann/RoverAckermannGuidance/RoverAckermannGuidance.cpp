@@ -75,7 +75,7 @@ RoverAckermannGuidance::motor_setpoint RoverAckermannGuidance::computeGuidance(c
 		_desired_steering = 0.f;
 		_desired_speed = 0.f;
 
-	} else if (distance_to_curr_wp < _acceptance_radius) { // Catch delay command
+	} else if (distance_to_curr_wp < ACC_RAD_DELAY_SCALE * _acceptance_radius) { // Catch delay command
 		_desired_speed = 0.f;
 
 	} else {
@@ -133,6 +133,13 @@ void RoverAckermannGuidance::updateSubscriptions()
 		_curr_pos = Vector2d(vehicle_global_position.lat, vehicle_global_position.lon);
 	}
 
+	if (_vehicle_attitude_sub.updated()) {
+		vehicle_attitude_s vehicle_attitude{};
+		_vehicle_attitude_sub.copy(&vehicle_attitude);
+		_vehicle_attitude_quaternion = Quatf(vehicle_attitude.q);
+		_vehicle_yaw = matrix::Eulerf(_vehicle_attitude_quaternion).psi();
+	}
+
 	if (_local_position_sub.updated()) {
 		vehicle_local_position_s local_position{};
 		_local_position_sub.copy(&local_position);
@@ -143,8 +150,9 @@ void RoverAckermannGuidance::updateSubscriptions()
 		}
 
 		_curr_pos_ned = Vector2f(local_position.x, local_position.y);
-		const Vector3f rover_velocity = {local_position.vx, local_position.vy, local_position.vz};
-		_actual_speed = rover_velocity.norm();
+		const Vector3f rover_velocity_local_frame = {local_position.vx, local_position.vy, local_position.vz};
+		const Vector3f rover_velocity_body_frame = _vehicle_attitude_quaternion.rotateVectorInverse(rover_velocity_local_frame);
+		_actual_speed = rover_velocity_body_frame(0);
 	}
 
 	if (_home_position_sub.updated()) {
@@ -155,13 +163,6 @@ void RoverAckermannGuidance::updateSubscriptions()
 
 	if (_position_setpoint_triplet_sub.updated()) {
 		updateWaypoints();
-	}
-
-	if (_vehicle_attitude_sub.updated()) {
-		vehicle_attitude_s vehicle_attitude{};
-		_vehicle_attitude_sub.copy(&vehicle_attitude);
-		matrix::Quatf vehicle_attitude_quaternion = Quatf(vehicle_attitude.q);
-		_vehicle_yaw = matrix::Eulerf(vehicle_attitude_quaternion).psi();
 	}
 
 	if (_mission_result_sub.updated()) {

@@ -185,6 +185,7 @@ private:
 	Vector2f _curr_pos_ned{};
 	PID_t _pid_throttle;
 	hrt_abstime _timestamp{0};
+	Quatf _vehicle_attitude_quaternion{};
 
 	// Waypoint variables
 	Vector2d _curr_wp{};
@@ -198,6 +199,10 @@ private:
 	float _prev_acceptance_radius{0.5f};
 	bool _mission_finished{false};
 	float _mission_speed{0.f};
+
+	// Constants
+	static constexpr float ACC_RAD_DELAY_SCALE = 0.8f; // Scale acceptance radius when catching delay command
+	to avoid stopping rover during regular waypoint transition
 
 	// Parameters
 	DEFINE_PARAMETERS(
