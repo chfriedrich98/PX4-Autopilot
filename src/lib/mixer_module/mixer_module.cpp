@@ -438,6 +438,7 @@ bool MixingOutput::update()
 	_reversible_mask = 0;
 
 	for (int i = 0; i < _max_num_outputs; ++i) {
+
 		if (_functions[i]) {
 			all_disabled = false;
 
