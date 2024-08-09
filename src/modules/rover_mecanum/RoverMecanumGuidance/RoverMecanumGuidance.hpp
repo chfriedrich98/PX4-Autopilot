@@ -126,6 +126,7 @@ private:
 	PurePursuit _pure_pursuit{this}; // Pure pursuit library
 	hrt_abstime _timestamp{0};
 	float _max_yaw_rate{0.f};
+	float _theta{0.f};
 
 
 	// Waypoints
@@ -136,6 +137,7 @@ private:
 	Vector2d _curr_wp{};
 	Vector2f _curr_wp_ned{};
 	Vector2d _next_wp{};
+	Vector2f _next_wp_ned{};
 	Vector2d _home_position{};
 
 	// Controllers
@@ -147,18 +149,18 @@ private:
 
 	// Parameters
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::RD_HEADING_P>) _param_rd_p_gain_heading,
-		(ParamFloat<px4::params::RD_HEADING_I>) _param_rd_i_gain_heading,
-		(ParamFloat<px4::params::RD_SPEED_P>) _param_rd_p_gain_speed,
-		(ParamFloat<px4::params::RD_SPEED_I>) _param_rd_i_gain_speed,
-		(ParamFloat<px4::params::RD_MAX_SPEED>) _param_rd_max_speed,
+		(ParamFloat<px4::params::RM_HEADING_P>) _param_rm_p_gain_heading,
+		(ParamFloat<px4::params::RM_HEADING_I>) _param_rm_i_gain_heading,
+		(ParamFloat<px4::params::RM_SPEED_P>) _param_rm_p_gain_speed,
+		(ParamFloat<px4::params::RM_SPEED_I>) _param_rm_i_gain_speed,
+		(ParamFloat<px4::params::RM_MAX_SPEED>) _param_rm_max_speed,
 		(ParamFloat<px4::params::NAV_ACC_RAD>) _param_nav_acc_rad,
-		(ParamFloat<px4::params::RD_MAX_JERK>) _param_rd_max_jerk,
-		(ParamFloat<px4::params::RD_MAX_ACCEL>) _param_rd_max_accel,
-		(ParamFloat<px4::params::RD_MISS_SPD_DEF>) _param_rd_miss_spd_def,
-		(ParamFloat<px4::params::RD_MAX_YAW_RATE>) _param_rd_max_yaw_rate,
-		(ParamFloat<px4::params::RD_TRANS_TRN_DRV>) _param_rd_trans_trn_drv,
-		(ParamFloat<px4::params::RD_TRANS_DRV_TRN>) _param_rd_trans_drv_trn
+		(ParamFloat<px4::params::RM_MAX_JERK>) _param_rm_max_jerk,
+		(ParamFloat<px4::params::RM_MAX_ACCEL>) _param_rm_max_accel,
+		(ParamFloat<px4::params::RM_MISS_SPD_DEF>) _param_rm_miss_spd_def,
+		(ParamFloat<px4::params::RM_MAX_YAW_RATE>) _param_rm_max_yaw_rate,
+		(ParamFloat<px4::params::RM_TRANS_TRN_DRV>) _param_rm_trans_trn_drv,
+		(ParamFloat<px4::params::RM_TRANS_DRV_TRN>) _param_rm_trans_drv_trn
 
 	)
 };

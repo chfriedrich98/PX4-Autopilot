@@ -81,19 +81,25 @@ public:
 	bool init();
 
 	/**
-	 * @brief Computes motor commands for mecanum drive.
+	 * @brief Turn normalized speed setpoints into normalized motor commands.
 	 *
-	 * @param forward_speed Linear velocity along the x-axis.
-	 * @param speed_diff Speed difference between left and right wheels.
-	 * @return matrix::Vector2f Motor velocities for the right and left motors.
+	 * @param forward_speed Normalized linear speed in body forward direction [-1, 1].
+	 * @param lateral_speed Normalized linear speed in body lateral direction [-1, 1].
+	 * @param speed_diff Normalized speed difference between left and right wheels [-1, 1].
+	 * @return matrix::Vector4f: Normalized motor inputs [-1, 1]
 	 */
-	matrix::Vector4f computeMotorCommands(float linear_velocity_x, float linear_velocity_y, float yaw_rate);
+	matrix::Vector4f computeMotorCommands(float forward_speed, float lateral_speed, float speed_diff);
 
 protected:
 	void updateParams() override;
 
 private:
 	void Run() override;
+
+	/**
+	 * @brief Update uORB subscriptions.
+	 */
+	void updateSubscriptions();
 
 	// uORB Subscriptions
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
@@ -108,7 +114,7 @@ private:
 	uORB::Publication<rover_mecanum_status_s> _rover_mecanum_status_pub{ORB_ID(rover_mecanum_status)};
 
 	// Instances
-	// RoverMecanumGuidance _rover_mecanum_guidance{this};
+	RoverMecanumGuidance _rover_mecanum_guidance{this};
 
 	// Variables
 	float _vehicle_body_yaw_rate{0.f};
@@ -125,9 +131,12 @@ private:
 	static constexpr float YAW_RATE_ERROR_THRESHOLD = 0.1f; // [rad/s] Error threshold for the closed loop yaw rate control
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::RM_WHEEL_BASE>) _param_rm_wheel_base,
-		(ParamFloat<px4::params::RM_WHEEL_RADIUS>) _param_rm_wheel_radius,
+		(ParamFloat<px4::params::RM_WHEEL_TRACK>) _param_rm_wheel_track,
+		(ParamFloat<px4::params::RM_MAX_SPEED>) _param_rm_max_speed,
 		(ParamFloat<px4::params::RM_MAN_YAW_SCALE>) _param_rm_man_yaw_scale,
+		(ParamFloat<px4::params::RM_MAX_YAW_RATE>) _param_rm_max_yaw_rate,
+		(ParamFloat<px4::params::RM_YAW_RATE_P>) _param_rm_yaw_rate_p,
+		(ParamFloat<px4::params::RM_YAW_RATE_I>) _param_rm_yaw_rate_i,
 		(ParamInt<px4::params::CA_R_REV>) _param_r_rev
 	)
 };

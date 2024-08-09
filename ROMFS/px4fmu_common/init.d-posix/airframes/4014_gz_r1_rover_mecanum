@@ -11,6 +11,26 @@ PX4_SIM_MODEL=${PX4_SIM_MODEL:=r1_rover_mecanum}
 
 param set-default SIM_GZ_EN 1 # Gazebo bridge
 
+# Rover parameters
+param set-default RM_WHEEL_TRACK 0.3
+param set-default RM_MAN_YAW_SCALE 0.1
+param set-default RM_YAW_RATE_I 0.1
+param set-default RM_YAW_RATE_P 0.5
+param set-default RM_MAX_ACCEL 6
+param set-default RM_MAX_JERK 30
+param set-default RM_MAX_SPEED 7
+param set-default RM_HEADING_P 5
+param set-default RM_HEADING_I 0.1
+param set-default RM_MAX_YAW_RATE 180
+param set-default RM_MISS_SPD_DEF 7
+param set-default RM_TRANS_DRV_TRN 0.349066
+param set-default RM_TRANS_TRN_DRV 0.174533
+
+# Pure pursuit parameters
+param set-default PP_LOOKAHD_MAX 30
+param set-default PP_LOOKAHD_MIN 2
+param set-default PP_LOOKAHD_GAIN 1
+
 # Simulated sensors
 param set-default SENS_EN_GPSSIM 1
 param set-default SENS_EN_BAROSIM 0
