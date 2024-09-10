@@ -35,6 +35,8 @@
 
 #include <matrix/math.hpp>
 #include <px4_platform_common/module_params.h>
+#include <uORB/Publication.hpp>
+#include <uORB/topics/pure_pursuit.h>
 
 using namespace matrix;
 
@@ -111,6 +113,9 @@ protected:
 	 * @brief Update the parameters of the module.
 	 */
 	void updateParams() override;
+
+	// uORB Publication
+	uORB::Publication<pure_pursuit_s> _pure_pursuit_pub{ORB_ID(pure_pursuit)};
 
 	struct {
 		param_t lookahead_gain;
