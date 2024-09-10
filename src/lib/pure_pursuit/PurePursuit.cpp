@@ -40,6 +40,7 @@ PurePursuit::PurePursuit(ModuleParams *parent) : ModuleParams(parent)
 	_param_handles.lookahead_gain = param_find("PP_LOOKAHD_GAIN");
 	_param_handles.lookahead_max = param_find("PP_LOOKAHD_MAX");
 	_param_handles.lookahead_min = param_find("PP_LOOKAHD_MIN");
+	_pure_pursuit_pub.advertise();
 	updateParams();
 }
 
@@ -67,17 +68,44 @@ float PurePursuit::calcDesiredHeading(const Vector2f &curr_wp_ned, const Vector2
 					      _params.lookahead_min, _params.lookahead_max);
 
 	// Pure pursuit
+	float desired_heading{0.f};
 	const Vector2f curr_pos_to_curr_wp = curr_wp_ned - curr_pos_ned;
 	const Vector2f prev_wp_to_curr_wp = curr_wp_ned - prev_wp_ned;
+	const Vector2f prev_wp_to_curr_pos = curr_pos_ned - prev_wp_ned;
+	const Vector2f prev_wp_to_curr_wp_u = prev_wp_to_curr_wp.unit_or_zero();
+	const Vector2f distance_on_line_segment = (prev_wp_to_curr_pos * prev_wp_to_curr_wp_u) *
+			prev_wp_to_curr_wp_u; // Projection of prev_wp_to_curr_pos onto prev_wp_to_curr_wp
+	const Vector2f curr_pos_to_path = distance_on_line_segment -
+					prev_wp_to_curr_pos; // Shortest vector from the current position to the path
+	const float crosstrack_error = curr_pos_to_path.norm();
 
 	if (curr_pos_to_curr_wp.norm() < _lookahead_distance
 	    || prev_wp_to_curr_wp.norm() <
 	    FLT_EPSILON) { // Target current waypoint if closer to it than lookahead or waypoints overlap
-		return atan2f(curr_pos_to_curr_wp(1), curr_pos_to_curr_wp(0));
+		desired_heading = atan2f(curr_pos_to_curr_wp(1), curr_pos_to_curr_wp(0));
+	} else {
+
+		if (crosstrack_error > _lookahead_distance) { // Target closest point on path if there is no intersection point
+			desired_heading = atan2f(curr_pos_to_path(1), curr_pos_to_path(0));
+		} else {
+			const float line_extension = sqrt(powf(_lookahead_distance, 2.f) - powf(curr_pos_to_path.norm(),
+							2.f)); // Length of the vector from the endpoint of distance_on_line_segment to the intersection point
+			const Vector2f prev_wp_to_intersection_point = distance_on_line_segment + line_extension *
+					prev_wp_to_curr_wp_u;
+			const Vector2f curr_pos_to_intersection_point = prev_wp_to_intersection_point - prev_wp_to_curr_pos;
+			desired_heading = atan2f(curr_pos_to_intersection_point(1), curr_pos_to_intersection_point(0));
+		}
+
 	}
 
-	const Vector2f prev_wp_to_curr_pos = curr_pos_ned - prev_wp_ned;
-	const Vector2f prev_wp_to_curr_wp_u = prev_wp_to_curr_wp.unit_or_zero();
+	pure_pursuit_s pure_pursuit{};
+	pure_pursuit.timestamp = hrt_absolute_time();
+	pure_pursuit.desired_heading = desired_heading;
+	pure_pursuit.lookahead_distance = _lookahead_distance;
+	pure_pursuit.crosstrack_error = PX4_ISFINITE(crosstrack_error) ? crosstrack_error : 0.f;
+	pure_pursuit.distance_to_waypoint = curr_pos_to_curr_wp.norm() < (float)1e6  ? curr_pos_to_curr_wp.norm() : 0.f;
+	_pure_pursuit_pub.publish(pure_pursuit);
+	return desired_heading;
 	_distance_on_line_segment = (prev_wp_to_curr_pos * prev_wp_to_curr_wp_u) * prev_wp_to_curr_wp_u;
 	_curr_pos_to_path = _distance_on_line_segment - prev_wp_to_curr_pos;
 
