@@ -51,6 +51,7 @@
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/rover_differential_setpoint.h>
+#include <uORB/topics/pure_pursuit.h>
 
 // Standard libraries
 #include <matrix/matrix/math.hpp>
@@ -105,6 +106,7 @@ private:
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _pure_pursuit_sub{ORB_ID(pure_pursuit)};
 
 	// uORB Publications
 	uORB::Publication<rover_differential_setpoint_s> _rover_differential_setpoint_pub{ORB_ID(rover_differential_setpoint)};
@@ -127,6 +129,8 @@ private:
 	float _stab_desired_yaw{0.f}; // Yaw setpoint for Stabilized mode
 	Vector2f _pos_ctl_course_direction{}; // Course direction for Position mode
 	Vector2f _pos_ctl_start_position_ned{}; // Initial rover position for course control in Position mode
+	float _crosstrack_error{0.f};
+	float _distance_on_line_segment{0.f};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::RD_MAN_YAW_SCALE>) _param_rd_man_yaw_scale,
