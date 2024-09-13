@@ -55,19 +55,17 @@ void PurePursuit::updateParams()
 }
 
 float PurePursuit::calcDesiredHeading(const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned,
-				      const Vector2f &curr_pos_ned,
-				      const float vehicle_speed)
+				      const Vector2f &curr_pos_ned, const float vehicle_speed)
 {
 	// Check input validity
-	if (!curr_wp_ned.isAllFinite() || !curr_pos_ned.isAllFinite() || vehicle_speed < -FLT_EPSILON
-	    || !PX4_ISFINITE(vehicle_speed) || !prev_wp_ned.isAllFinite()) {
+	if (!curr_wp_ned.isAllFinite() || !curr_pos_ned.isAllFinite() || !PX4_ISFINITE(vehicle_speed)
+	    || !prev_wp_ned.isAllFinite()) {
 		return NAN;
 	}
 
-	_lookahead_distance = math::constrain(_params.lookahead_gain * vehicle_speed,
-					      _params.lookahead_min, _params.lookahead_max);
-
 	// Pure pursuit
+	_lookahead_distance = math::constrain(_params.lookahead_gain * fabsf(vehicle_speed),
+					      _params.lookahead_min, _params.lookahead_max);
 	float desired_heading{0.f};
 	const Vector2f curr_pos_to_curr_wp = curr_wp_ned - curr_pos_ned;
 	const Vector2f prev_wp_to_curr_wp = curr_wp_ned - prev_wp_ned;
@@ -76,20 +74,22 @@ float PurePursuit::calcDesiredHeading(const Vector2f &curr_wp_ned, const Vector2
 	const Vector2f distance_on_line_segment = (prev_wp_to_curr_pos * prev_wp_to_curr_wp_u) *
 			prev_wp_to_curr_wp_u; // Projection of prev_wp_to_curr_pos onto prev_wp_to_curr_wp
 	const Vector2f curr_pos_to_path = distance_on_line_segment -
-					prev_wp_to_curr_pos; // Shortest vector from the current position to the path
+					  prev_wp_to_curr_pos; // Shortest vector from the current position to the path
 	const float crosstrack_error = curr_pos_to_path.norm();
 
 	if (curr_pos_to_curr_wp.norm() < _lookahead_distance
 	    || prev_wp_to_curr_wp.norm() <
 	    FLT_EPSILON) { // Target current waypoint if closer to it than lookahead or waypoints overlap
 		desired_heading = atan2f(curr_pos_to_curr_wp(1), curr_pos_to_curr_wp(0));
+
 	} else {
 
 		if (crosstrack_error > _lookahead_distance) { // Target closest point on path if there is no intersection point
 			desired_heading = atan2f(curr_pos_to_path(1), curr_pos_to_path(0));
+
 		} else {
 			const float line_extension = sqrt(powf(_lookahead_distance, 2.f) - powf(curr_pos_to_path.norm(),
-							2.f)); // Length of the vector from the endpoint of distance_on_line_segment to the intersection point
+							  2.f)); // Length of the vector from the endpoint of distance_on_line_segment to the intersection point
 			const Vector2f prev_wp_to_intersection_point = distance_on_line_segment + line_extension *
 					prev_wp_to_curr_wp_u;
 			const Vector2f curr_pos_to_intersection_point = prev_wp_to_intersection_point - prev_wp_to_curr_pos;
@@ -98,26 +98,17 @@ float PurePursuit::calcDesiredHeading(const Vector2f &curr_wp_ned, const Vector2
 
 	}
 
+	if (sign(vehicle_speed + FLT_EPSILON) < 0) { // Flip desired heading by PI when driving backwards
+		desired_heading = matrix::wrap_pi(M_PI_F + desired_heading);
+	}
+
 	pure_pursuit_s pure_pursuit{};
 	pure_pursuit.timestamp = hrt_absolute_time();
 	pure_pursuit.desired_heading = desired_heading;
 	pure_pursuit.lookahead_distance = _lookahead_distance;
 	pure_pursuit.crosstrack_error = PX4_ISFINITE(crosstrack_error) ? crosstrack_error : 0.f;
 	pure_pursuit.distance_to_waypoint = curr_pos_to_curr_wp.norm() < (float)1e6  ? curr_pos_to_curr_wp.norm() : 0.f;
+	pure_pursuit.distance_on_line_segment = distance_on_line_segment.norm();
 	_pure_pursuit_pub.publish(pure_pursuit);
 	return desired_heading;
-	_distance_on_line_segment = (prev_wp_to_curr_pos * prev_wp_to_curr_wp_u) * prev_wp_to_curr_wp_u;
-	_curr_pos_to_path = _distance_on_line_segment - prev_wp_to_curr_pos;
-
-	if (_curr_pos_to_path.norm() > _lookahead_distance) { // Target closest point on path if there is no intersection point
-		return atan2f(_curr_pos_to_path(1), _curr_pos_to_path(0));
-	}
-
-	const float line_extension = sqrt(powf(_lookahead_distance, 2.f) - powf(_curr_pos_to_path.norm(),
-					  2.f)); // Length of the vector from the endpoint of _distance_on_line_segment to the intersection point
-	const Vector2f prev_wp_to_intersection_point = _distance_on_line_segment + line_extension *
-			prev_wp_to_curr_wp_u;
-	const Vector2f curr_pos_to_intersection_point = prev_wp_to_intersection_point - prev_wp_to_curr_pos;
-	return atan2f(curr_pos_to_intersection_point(1), curr_pos_to_intersection_point(0));
-
 }

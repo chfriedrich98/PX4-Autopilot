@@ -119,8 +119,7 @@ void RoverDifferentialGuidance::computeGuidance(const float vehicle_yaw, const f
 	hrt_abstime timestamp = hrt_absolute_time();
 	rover_differential_guidance_status_s rover_differential_guidance_status{};
 	rover_differential_guidance_status.timestamp = timestamp;
-	rover_differential_guidance_status.lookahead_distance = _pure_pursuit.getLookaheadDistance();
-	rover_differential_guidance_status.heading_error_deg = M_RAD_TO_DEG_F * heading_error;
+	rover_differential_guidance_status.heading_error = heading_error;
 	rover_differential_guidance_status.state_machine = (uint8_t) _currentState;
 	_rover_differential_guidance_status_pub.publish(rover_differential_guidance_status);
 
