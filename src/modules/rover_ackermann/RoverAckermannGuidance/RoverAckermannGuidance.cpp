@@ -288,11 +288,10 @@ float RoverAckermannGuidance::calcDesiredSteering(PurePursuit &pure_pursuit, con
 		const float vehicle_yaw, const float max_steering)
 {
 	const float desired_heading = pure_pursuit.calcDesiredHeading(curr_wp_ned, prev_wp_ned, curr_pos_ned,
-				      desired_speed);
+				      desired_speed, vehicle_yaw);
 	const float lookahead_distance = pure_pursuit.getLookaheadDistance();
 	const float heading_error = matrix::wrap_pi(desired_heading - vehicle_yaw);
 	// For logging
-	_rover_ackermann_guidance_status.lookahead_distance = lookahead_distance;
 	_rover_ackermann_guidance_status.heading_error = (heading_error * 180.f) / (M_PI_F);
 
 	float desired_steering{0.f};

@@ -167,7 +167,7 @@ void RoverDifferential::Run()
 									     vector_scaling * _pos_ctl_course_direction;
 					// Calculate yaw setpoint
 					rover_differential_setpoint.yaw_setpoint = _posctl_pure_pursuit.calcDesiredHeading(target_waypoint_ned,
-							_pos_ctl_start_position_ned, _curr_pos_ned, _vehicle_forward_speed);
+							_pos_ctl_start_position_ned, _curr_pos_ned, _vehicle_forward_speed, _vehicle_yaw);
 					rover_differential_setpoint.yaw_rate_setpoint = NAN;
 
 				}
