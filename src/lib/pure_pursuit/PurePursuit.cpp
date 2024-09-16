@@ -55,7 +55,7 @@ void PurePursuit::updateParams()
 }
 
 float PurePursuit::calcDesiredHeading(const Vector2f &curr_wp_ned, const Vector2f &prev_wp_ned,
-				      const Vector2f &curr_pos_ned, const float vehicle_speed)
+				      const Vector2f &curr_pos_ned, const float vehicle_speed, const float vehicle_heading)
 {
 	// Check input validity
 	if (!curr_wp_ned.isAllFinite() || !curr_pos_ned.isAllFinite() || !PX4_ISFINITE(vehicle_speed)
@@ -109,6 +109,7 @@ float PurePursuit::calcDesiredHeading(const Vector2f &curr_wp_ned, const Vector2
 	pure_pursuit.crosstrack_error = PX4_ISFINITE(crosstrack_error) ? crosstrack_error : 0.f;
 	pure_pursuit.distance_to_waypoint = curr_pos_to_curr_wp.norm() < (float)1e6  ? curr_pos_to_curr_wp.norm() : 0.f;
 	pure_pursuit.distance_on_line_segment = distance_on_line_segment.norm();
+	pure_pursuit.heading_error = PX4_ISFINITE(vehicle_heading) ? vehicle_heading - desired_heading : 0.f;
 	_pure_pursuit_pub.publish(pure_pursuit);
 	return desired_heading;
 }

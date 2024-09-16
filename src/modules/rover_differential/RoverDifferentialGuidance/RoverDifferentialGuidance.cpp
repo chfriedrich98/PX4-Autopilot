@@ -63,7 +63,7 @@ void RoverDifferentialGuidance::computeGuidance(const float vehicle_yaw, const f
 
 	// State machine
 	float desired_yaw = _pure_pursuit.calcDesiredHeading(_curr_wp_ned, _prev_wp_ned, _curr_pos_ned,
-			    math::max(forward_speed, 0.f));
+			    math::max(forward_speed, 0.f), vehicle_yaw);
 	const float heading_error = matrix::wrap_pi(desired_yaw - vehicle_yaw);
 
 	if (!_mission_finished && distance_to_curr_wp > _param_nav_acc_rad.get()) {
