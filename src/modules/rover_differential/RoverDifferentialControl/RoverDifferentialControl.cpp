@@ -51,6 +51,8 @@ void RoverDifferentialControl::updateParams()
 {
 	ModuleParams::updateParams();
 	_max_yaw_rate = _param_rd_max_yaw_rate.get() * M_DEG_TO_RAD_F;
+
+	// Update PID
 	pid_set_parameters(&_pid_yaw_rate,
 			   _param_rd_yaw_rate_p.get(), // Proportional gain
 			   _param_rd_yaw_rate_i.get(), // Integral gain
@@ -69,6 +71,11 @@ void RoverDifferentialControl::updateParams()
 			   0.f,  // Derivative gain
 			   _max_yaw_rate,  // Integral limit
 			   _max_yaw_rate);  // Output limit
+
+	if (_max_yaw_rate > FLT_EPSILON) {
+		_yaw_setpoint_with_yaw_rate_limit.setSlewRate(_max_yaw_rate);
+	}
+
 }
 
 void RoverDifferentialControl::computeMotorCommands(const float vehicle_yaw, const float vehicle_yaw_rate,
@@ -112,26 +119,38 @@ void RoverDifferentialControl::computeMotorCommands(const float vehicle_yaw, con
 	float forward_speed_normalized{0.f};
 
 	if (PX4_ISFINITE(_rover_differential_setpoint.forward_speed_setpoint)) { // Closed loop speed control
-		if (_param_rd_max_thr_spd.get() > FLT_EPSILON) { // Feedforward
-			forward_speed_normalized = math::interpolate<float>(_rover_differential_setpoint.forward_speed_setpoint,
-						   -_param_rd_max_thr_spd.get(), _param_rd_max_thr_spd.get(),
-						   -1.f, 1.f);
+		forward_speed_normalized = closedLoopSpeedControl(_rover_differential_setpoint.forward_speed_setpoint,
+					   vehicle_forward_speed, dt);
+
+	} else if (PX4_ISFINITE(_rover_differential_setpoint.forward_speed_setpoint_normalized)) { // Use normalized setpoint
+		if (fabsf(_rover_differential_setpoint.forward_speed_setpoint_normalized) >= fabsf(
+			    _forward_speed_setpoint_with_accel_limit.getState())) {
+			if (_param_rd_max_accel.get() > FLT_EPSILON && _param_rd_max_thr_spd.get() > FLT_EPSILON) {
+				_forward_speed_setpoint_with_accel_limit.setSlewRate(_param_rd_max_accel.get() / _param_rd_max_thr_spd.get());
+				_forward_speed_setpoint_with_accel_limit.update(_rover_differential_setpoint.forward_speed_setpoint_normalized, dt);
+
+			} else {
+				_forward_speed_setpoint_with_accel_limit.setForcedValue(_rover_differential_setpoint.forward_speed_setpoint_normalized);
+
+			}
+
+		} else if (_param_rd_max_decel.get() > FLT_EPSILON && _param_rd_max_thr_spd.get() > FLT_EPSILON) {
+			_forward_speed_setpoint_with_accel_limit.setSlewRate(_param_rd_max_decel.get() / _param_rd_max_thr_spd.get());
+			_forward_speed_setpoint_with_accel_limit.update(_rover_differential_setpoint.forward_speed_setpoint_normalized, dt);
+
+		} else {
+			_forward_speed_setpoint_with_accel_limit.setForcedValue(_rover_differential_setpoint.forward_speed_setpoint_normalized);
 		}
 
-		forward_speed_normalized = math::constrain(forward_speed_normalized + pid_calculate(&_pid_throttle,
-					   _rover_differential_setpoint.forward_speed_setpoint,
-					   vehicle_forward_speed, 0,
-					   dt), -1.f, 1.f); // Feedback
+		forward_speed_normalized = math::constrain(_forward_speed_setpoint_with_accel_limit.getState(), -1.f, 1.f);
 
-	} else { // Use normalized setpoint
-		forward_speed_normalized = PX4_ISFINITE(_rover_differential_setpoint.forward_speed_setpoint_normalized) ?
-					   math::constrain(_rover_differential_setpoint.forward_speed_setpoint_normalized, -1.f, 1.f) : 0.f;
 	}
 
 	// Publish rover differential status (logging)
 	rover_differential_status_s rover_differential_status{};
 	rover_differential_status.timestamp = _timestamp;
 	rover_differential_status.actual_speed = vehicle_forward_speed;
+	rover_differential_status.desired_speed = _forward_speed_setpoint_with_accel_limit.getState();
 	rover_differential_status.actual_yaw = vehicle_yaw;
 	rover_differential_status.desired_yaw_rate = _rover_differential_setpoint.yaw_rate_setpoint;
 	rover_differential_status.actual_yaw_rate = vehicle_yaw_rate;
@@ -148,6 +167,43 @@ void RoverDifferentialControl::computeMotorCommands(const float vehicle_yaw, con
 	computeInverseKinematics(forward_speed_normalized, speed_diff_normalized).copyTo(actuator_motors.control);
 	actuator_motors.timestamp = _timestamp;
 	_actuator_motors_pub.publish(actuator_motors);
+}
+
+float RoverDifferentialControl::closedLoopSpeedControl(const float forward_speed_setpoint,
+		const float vehicle_forward_speed, const float dt)
+{
+	// Apply acceleration and deceleration limit
+	if (fabsf(forward_speed_setpoint) >= fabsf(_forward_speed_setpoint_with_accel_limit.getState())) {
+		if (_param_rd_max_accel.get() > FLT_EPSILON) {
+			_forward_speed_setpoint_with_accel_limit.setSlewRate(_param_rd_max_accel.get());
+			_forward_speed_setpoint_with_accel_limit.update(forward_speed_setpoint, dt);
+
+		} else {
+			_forward_speed_setpoint_with_accel_limit.setForcedValue(forward_speed_setpoint);
+
+		}
+
+	} else if (_param_rd_max_decel.get() > FLT_EPSILON) {
+		_forward_speed_setpoint_with_accel_limit.setSlewRate(_param_rd_max_decel.get());
+		_forward_speed_setpoint_with_accel_limit.update(forward_speed_setpoint, dt);
+
+	} else {
+		_forward_speed_setpoint_with_accel_limit.setForcedValue(forward_speed_setpoint);
+	}
+
+	// Closed loop speed control
+	float forward_speed_normalized{0.f};
+
+	if (_param_rd_max_thr_spd.get() > FLT_EPSILON) { // Feedforward
+		forward_speed_normalized = math::interpolate<float>(_forward_speed_setpoint_with_accel_limit.getState(),
+					   -_param_rd_max_thr_spd.get(), _param_rd_max_thr_spd.get(),
+					   -1.f, 1.f);
+	}
+
+	forward_speed_normalized += pid_calculate(&_pid_throttle, _forward_speed_setpoint_with_accel_limit.getState(),
+				    vehicle_forward_speed, 0, dt); // Feedback
+
+	return math::constrain(forward_speed_normalized, -1.f, 1.f);
 
 }
 

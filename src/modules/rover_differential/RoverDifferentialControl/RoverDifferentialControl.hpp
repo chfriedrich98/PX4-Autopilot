@@ -43,7 +43,7 @@
 #include <uORB/topics/rover_differential_setpoint.h>
 #include <uORB/topics/rover_differential_status.h>
 #include <uORB/topics/actuator_motors.h>
-
+#include <lib/slew_rate/SlewRate.hpp>
 
 // Standard libraries
 #include <lib/pid/pid.h>
@@ -85,6 +85,16 @@ protected:
 
 private:
 	/**
+	 * @brief Compute normalized forward speed setpoint by applying slew rates
+	 * to the forward speed setpoint and doing closed loop speed control.
+	 * @param forward_speed_setpoint Forward speed setpoint [m/s].
+	 * @param vehicle_forward_speed Actual forward speed [m/s].
+	 * @param dt Time since last update [s].
+	 * @return Normalized forward speed setpoint with applied slew rates [-1, 1].
+	 */
+	float closedLoopSpeedControl(float forward_speed_setpoint, float vehicle_forward_speed, float dt);
+
+	/**
 	 * @brief Compute normalized motor commands based on normalized setpoints.
 	 *
 	 * @param forward_speed_normalized Normalized forward speed [-1, 1].
@@ -109,11 +119,15 @@ private:
 	PID_t _pid_throttle; // The PID controller for the closed loop speed control
 	PID_t _pid_yaw; // The PID controller for the closed loop yaw control
 	PID_t _pid_yaw_rate; // The PID controller for the closed loop yaw rate control
+	SlewRate<float> _forward_speed_setpoint_with_accel_limit{0.f};
+	SlewRate<float> _yaw_setpoint_with_yaw_rate_limit{0.f};
 
 	// Parameters
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::RD_WHEEL_TRACK>) _param_rd_wheel_track,
 		(ParamFloat<px4::params::RD_MAX_THR_SPD>) _param_rd_max_thr_spd,
+		(ParamFloat<px4::params::RD_MAX_ACCEL>) _param_rd_max_accel,
+		(ParamFloat<px4::params::RD_MAX_DECEL>) _param_rd_max_decel,
 		(ParamFloat<px4::params::RD_MAX_THR_YAW_R>) _param_rd_max_thr_yaw_r,
 		(ParamFloat<px4::params::RD_MAX_YAW_RATE>) _param_rd_max_yaw_rate,
 		(ParamFloat<px4::params::RD_YAW_RATE_P>) _param_rd_yaw_rate_p,

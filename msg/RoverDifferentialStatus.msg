@@ -1,6 +1,7 @@
 uint64 timestamp # time since system start (microseconds)
 
 float32 actual_speed	         # [m/s] Actual forward speed of the rover
+float32 desired_speed            # [m/s] Speed setpoint for the closed loop speed controller
 float32 actual_yaw               # [rad] Actual yaw of the rover
 float32 actual_yaw_rate          # [rad/s] Actual yaw rate of the rover
 float32 desired_yaw_rate         # [rad/s] Yaw rate setpoint for the closed loop yaw rate controller
