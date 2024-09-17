@@ -85,7 +85,16 @@ float PurePursuit::calcDesiredHeading(const Vector2f &curr_wp_ned, const Vector2
 	} else {
 
 		if (crosstrack_error > _lookahead_distance) { // Target closest point on path if there is no intersection point
-			desired_heading = atan2f(curr_pos_to_path(1), curr_pos_to_path(0));
+			const Vector2f prev_wp_to_intersection_point = curr_pos_to_path + prev_wp_to_curr_pos;
+
+			if (prev_wp_to_intersection_point * prev_wp_to_curr_wp <
+			    FLT_EPSILON) { // Target previous waypoint if closest point is not between prev and curr wp
+				desired_heading = atan2f(-prev_wp_to_curr_pos(1), -prev_wp_to_curr_pos(0));
+
+			} else {
+				desired_heading = atan2f(curr_pos_to_path(1), curr_pos_to_path(0));
+
+			}
 
 		} else {
 			const float line_extension = sqrt(powf(_lookahead_distance, 2.f) - powf(curr_pos_to_path.norm(),
