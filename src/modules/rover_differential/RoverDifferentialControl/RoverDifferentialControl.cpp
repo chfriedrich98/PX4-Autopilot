@@ -118,31 +118,13 @@ void RoverDifferentialControl::computeMotorCommands(const float vehicle_yaw, con
 	// Speed control
 	float forward_speed_normalized{0.f};
 
-	if (PX4_ISFINITE(_rover_differential_setpoint.forward_speed_setpoint)) { // Closed loop speed control
-		forward_speed_normalized = closedLoopSpeedControl(_rover_differential_setpoint.forward_speed_setpoint,
-					   vehicle_forward_speed, dt);
+	if (PX4_ISFINITE(_rover_differential_setpoint.forward_speed_setpoint)) {
+		forward_speed_normalized = calcNormalizedSpeedSetpoint(_rover_differential_setpoint.forward_speed_setpoint,
+					   vehicle_forward_speed, dt, false);
 
 	} else if (PX4_ISFINITE(_rover_differential_setpoint.forward_speed_setpoint_normalized)) { // Use normalized setpoint
-		if (fabsf(_rover_differential_setpoint.forward_speed_setpoint_normalized) >= fabsf(
-			    _forward_speed_setpoint_with_accel_limit.getState())) {
-			if (_param_rd_max_accel.get() > FLT_EPSILON && _param_rd_max_thr_spd.get() > FLT_EPSILON) {
-				_forward_speed_setpoint_with_accel_limit.setSlewRate(_param_rd_max_accel.get() / _param_rd_max_thr_spd.get());
-				_forward_speed_setpoint_with_accel_limit.update(_rover_differential_setpoint.forward_speed_setpoint_normalized, dt);
-
-			} else {
-				_forward_speed_setpoint_with_accel_limit.setForcedValue(_rover_differential_setpoint.forward_speed_setpoint_normalized);
-
-			}
-
-		} else if (_param_rd_max_decel.get() > FLT_EPSILON && _param_rd_max_thr_spd.get() > FLT_EPSILON) {
-			_forward_speed_setpoint_with_accel_limit.setSlewRate(_param_rd_max_decel.get() / _param_rd_max_thr_spd.get());
-			_forward_speed_setpoint_with_accel_limit.update(_rover_differential_setpoint.forward_speed_setpoint_normalized, dt);
-
-		} else {
-			_forward_speed_setpoint_with_accel_limit.setForcedValue(_rover_differential_setpoint.forward_speed_setpoint_normalized);
-		}
-
-		forward_speed_normalized = math::constrain(_forward_speed_setpoint_with_accel_limit.getState(), -1.f, 1.f);
+		forward_speed_normalized = calcNormalizedSpeedSetpoint(_rover_differential_setpoint.forward_speed_setpoint_normalized,
+					   vehicle_forward_speed, dt, true);
 
 	}
 
@@ -169,13 +151,19 @@ void RoverDifferentialControl::computeMotorCommands(const float vehicle_yaw, con
 	_actuator_motors_pub.publish(actuator_motors);
 }
 
-float RoverDifferentialControl::closedLoopSpeedControl(const float forward_speed_setpoint,
-		const float vehicle_forward_speed, const float dt)
+float RoverDifferentialControl::calcNormalizedSpeedSetpoint(const float forward_speed_setpoint,
+		const float vehicle_forward_speed, const float dt, const bool normalized)
 {
+	float slew_rate_normalization{1.f};
+
+	if (normalized) { // Slew rate needs to be normalized if the setpoint is normalized
+		slew_rate_normalization = _param_rd_max_thr_spd.get() > FLT_EPSILON ? _param_rd_max_thr_spd.get() : 0.f;
+	}
+
 	// Apply acceleration and deceleration limit
 	if (fabsf(forward_speed_setpoint) >= fabsf(_forward_speed_setpoint_with_accel_limit.getState())) {
-		if (_param_rd_max_accel.get() > FLT_EPSILON) {
-			_forward_speed_setpoint_with_accel_limit.setSlewRate(_param_rd_max_accel.get());
+		if (_param_rd_max_accel.get() > FLT_EPSILON && slew_rate_normalization > FLT_EPSILON) {
+			_forward_speed_setpoint_with_accel_limit.setSlewRate(_param_rd_max_accel.get() / slew_rate_normalization);
 			_forward_speed_setpoint_with_accel_limit.update(forward_speed_setpoint, dt);
 
 		} else {
@@ -183,25 +171,30 @@ float RoverDifferentialControl::closedLoopSpeedControl(const float forward_speed
 
 		}
 
-	} else if (_param_rd_max_decel.get() > FLT_EPSILON) {
-		_forward_speed_setpoint_with_accel_limit.setSlewRate(_param_rd_max_decel.get());
+	} else if (_param_rd_max_decel.get() > FLT_EPSILON && slew_rate_normalization > FLT_EPSILON) {
+		_forward_speed_setpoint_with_accel_limit.setSlewRate(_param_rd_max_decel.get() / slew_rate_normalization);
 		_forward_speed_setpoint_with_accel_limit.update(forward_speed_setpoint, dt);
 
 	} else {
 		_forward_speed_setpoint_with_accel_limit.setForcedValue(forward_speed_setpoint);
 	}
 
-	// Closed loop speed control
+	// Calculate normalized forward speed setpoint
 	float forward_speed_normalized{0.f};
 
-	if (_param_rd_max_thr_spd.get() > FLT_EPSILON) { // Feedforward
-		forward_speed_normalized = math::interpolate<float>(_forward_speed_setpoint_with_accel_limit.getState(),
-					   -_param_rd_max_thr_spd.get(), _param_rd_max_thr_spd.get(),
-					   -1.f, 1.f);
-	}
+	if (normalized) {
+		forward_speed_normalized = _forward_speed_setpoint_with_accel_limit.getState();
 
-	forward_speed_normalized += pid_calculate(&_pid_throttle, _forward_speed_setpoint_with_accel_limit.getState(),
-				    vehicle_forward_speed, 0, dt); // Feedback
+	} else { // Closed loop speed control
+		if (_param_rd_max_thr_spd.get() > FLT_EPSILON) { // Feedforward
+			forward_speed_normalized = math::interpolate<float>(_forward_speed_setpoint_with_accel_limit.getState(),
+						   -_param_rd_max_thr_spd.get(), _param_rd_max_thr_spd.get(),
+						   -1.f, 1.f);
+		}
+
+		forward_speed_normalized += pid_calculate(&_pid_throttle, _forward_speed_setpoint_with_accel_limit.getState(),
+					    vehicle_forward_speed, 0, dt); // Feedback
+	}
 
 	return math::constrain(forward_speed_normalized, -1.f, 1.f);
 

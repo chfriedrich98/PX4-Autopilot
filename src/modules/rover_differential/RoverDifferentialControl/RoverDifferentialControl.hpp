@@ -86,13 +86,14 @@ protected:
 private:
 	/**
 	 * @brief Compute normalized forward speed setpoint by applying slew rates
-	 * to the forward speed setpoint and doing closed loop speed control.
+	 * to the forward speed setpoint and doing closed loop speed control if enabled.
 	 * @param forward_speed_setpoint Forward speed setpoint [m/s].
 	 * @param vehicle_forward_speed Actual forward speed [m/s].
 	 * @param dt Time since last update [s].
+	 * @param normalized Indicates if the forward speed setpoint is already normalized.
 	 * @return Normalized forward speed setpoint with applied slew rates [-1, 1].
 	 */
-	float closedLoopSpeedControl(float forward_speed_setpoint, float vehicle_forward_speed, float dt);
+	float calcNormalizedSpeedSetpoint(float forward_speed_setpoint, float vehicle_forward_speed, float dt, bool normalized);
 
 	/**
 	 * @brief Compute normalized motor commands based on normalized setpoints.
