@@ -44,6 +44,7 @@
 #include <uORB/topics/rover_differential_status.h>
 #include <uORB/topics/actuator_motors.h>
 #include <lib/slew_rate/SlewRate.hpp>
+#include <lib/slew_rate/SlewRateYaw.hpp>
 
 // Standard libraries
 #include <lib/pid/pid.h>
@@ -110,18 +111,21 @@ private:
 	// uORB publications
 	uORB::PublicationMulti<actuator_motors_s> _actuator_motors_pub{ORB_ID(actuator_motors)};
 	uORB::Publication<rover_differential_status_s> _rover_differential_status_pub{ORB_ID(rover_differential_status)};
+	rover_differential_status_s _rover_differential_status{};
 
 	// Variables
 	rover_differential_setpoint_s _rover_differential_setpoint{};
 	hrt_abstime _timestamp{0};
 	float _max_yaw_rate{0.f};
+	float _max_yaw_accel{0.f};
 
 	// Controllers
 	PID_t _pid_throttle; // The PID controller for the closed loop speed control
 	PID_t _pid_yaw; // The PID controller for the closed loop yaw control
 	PID_t _pid_yaw_rate; // The PID controller for the closed loop yaw rate control
 	SlewRate<float> _forward_speed_setpoint_with_accel_limit{0.f};
-	SlewRate<float> _yaw_setpoint_with_yaw_rate_limit{0.f};
+	SlewRate<float> _yaw_rate_with_accel_limit{0.f};
+	SlewRateYaw<float> _yaw_setpoint_with_yaw_rate_limit;
 
 	// Parameters
 	DEFINE_PARAMETERS(
@@ -131,6 +135,7 @@ private:
 		(ParamFloat<px4::params::RD_MAX_DECEL>) _param_rd_max_decel,
 		(ParamFloat<px4::params::RD_MAX_THR_YAW_R>) _param_rd_max_thr_yaw_r,
 		(ParamFloat<px4::params::RD_MAX_YAW_RATE>) _param_rd_max_yaw_rate,
+		(ParamFloat<px4::params::RD_MAX_YAW_ACCEL>) _param_rd_max_yaw_accel,
 		(ParamFloat<px4::params::RD_YAW_RATE_P>) _param_rd_yaw_rate_p,
 		(ParamFloat<px4::params::RD_YAW_RATE_I>) _param_rd_yaw_rate_i,
 		(ParamFloat<px4::params::RD_SPEED_P>) _param_rd_p_gain_speed,
