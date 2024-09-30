@@ -73,6 +73,7 @@ void RoverDifferentialControl::updateParams()
 			   _max_yaw_rate,  // Integral limit
 			   _max_yaw_rate);  // Output limit
 
+	// Update slew rates
 	if (_max_yaw_rate > FLT_EPSILON) {
 		_yaw_setpoint_with_yaw_rate_limit.setSlewRate(_max_yaw_rate);
 	}
@@ -111,6 +112,7 @@ void RoverDifferentialControl::computeMotorCommands(const float vehicle_yaw, con
 
 	if (PX4_ISFINITE(_rover_differential_setpoint.yaw_rate_setpoint)) { // Closed loop yaw rate control
 		if (_max_yaw_accel > FLT_EPSILON) {
+			_yaw_rate_with_accel_limit.setSlewRate(_max_yaw_accel);
 			_yaw_rate_with_accel_limit.update(_rover_differential_setpoint.yaw_rate_setpoint, dt);
 
 		} else {
@@ -131,8 +133,20 @@ void RoverDifferentialControl::computeMotorCommands(const float vehicle_yaw, con
 							-1.f, 1.f); // Feedback
 
 	} else { // Use normalized setpoint
-		speed_diff_normalized = PX4_ISFINITE(_rover_differential_setpoint.yaw_rate_setpoint_normalized) ?
-					math::constrain(_rover_differential_setpoint.yaw_rate_setpoint_normalized, -1.f, 1.f) : 0.f;
+		if (PX4_ISFINITE(_rover_differential_setpoint.yaw_rate_setpoint_normalized)) {
+			if (_max_yaw_accel > FLT_EPSILON && _param_rd_max_thr_yaw_r.get() > FLT_EPSILON) { // Apply slew rate
+				_yaw_rate_with_accel_limit.setSlewRate(_max_yaw_accel / _param_rd_max_thr_yaw_r.get());
+				_yaw_rate_with_accel_limit.update(_rover_differential_setpoint.yaw_rate_setpoint, dt);
+
+			} else {
+				_yaw_rate_with_accel_limit.setForcedValue(_rover_differential_setpoint.yaw_rate_setpoint_normalized);
+			}
+
+		} else {
+			_yaw_rate_with_accel_limit.setForcedValue(0.f);
+		}
+
+		speed_diff_normalized = math::constrain(_yaw_rate_with_accel_limit.getState(), -1.f, 1.f);
 	}
 
 	// Speed control
