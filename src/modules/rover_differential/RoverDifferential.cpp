@@ -33,6 +33,8 @@
 
 #include "RoverDifferential.hpp"
 
+#include <mathlib/math/Functions.hpp>
+
 RoverDifferential::RoverDifferential() :
 	ModuleParams(nullptr),
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl)
@@ -102,7 +104,9 @@ void RoverDifferential::Run()
 				rover_differential_setpoint.timestamp = timestamp;
 				rover_differential_setpoint.forward_speed_setpoint = NAN;
 				rover_differential_setpoint.forward_speed_setpoint_normalized = manual_control_setpoint.throttle;
-				rover_differential_setpoint.yaw_rate_setpoint = math::interpolate<float>(manual_control_setpoint.roll,
+				const float roll_exponential_mapping = math::superexpo(manual_control_setpoint.roll, _param_rd_man_expo.get(),
+								       _param_rd_man_supexpo.get());
+				rover_differential_setpoint.yaw_rate_setpoint = math::interpolate<float>(roll_exponential_mapping,
 						-1.f, 1.f, -_max_yaw_rate, _max_yaw_rate);
 				rover_differential_setpoint.speed_diff_setpoint_normalized = NAN;
 				rover_differential_setpoint.yaw_setpoint = NAN;
@@ -120,7 +124,7 @@ void RoverDifferential::Run()
 				rover_differential_setpoint.forward_speed_setpoint = NAN;
 				rover_differential_setpoint.forward_speed_setpoint_normalized = manual_control_setpoint.throttle;
 				rover_differential_setpoint.yaw_rate_setpoint = math::interpolate<float>(math::deadzone(manual_control_setpoint.roll,
-						STICK_DEADZONE), -1.f, 1.f, -_max_yaw_rate, _max_yaw_rate);
+						_param_rd_man_deadzone.get()), -1.f, 1.f, -_max_yaw_rate, _max_yaw_rate);
 				rover_differential_setpoint.speed_diff_setpoint_normalized = NAN;
 				rover_differential_setpoint.yaw_setpoint = NAN;
 
@@ -155,7 +159,7 @@ void RoverDifferential::Run()
 						-1.f, 1.f, -_param_rd_max_speed.get(), _param_rd_max_speed.get());
 				rover_differential_setpoint.forward_speed_setpoint_normalized = NAN;
 				rover_differential_setpoint.yaw_rate_setpoint = math::interpolate<float>(math::deadzone(manual_control_setpoint.roll,
-						STICK_DEADZONE), -1.f, 1.f, -_max_yaw_rate, _max_yaw_rate);
+						_param_rd_man_deadzone.get()), -1.f, 1.f, -_max_yaw_rate, _max_yaw_rate);
 				rover_differential_setpoint.speed_diff_setpoint_normalized = NAN;
 				rover_differential_setpoint.yaw_setpoint = NAN;
 

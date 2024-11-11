@@ -62,8 +62,6 @@
 using namespace time_literals;
 
 // Constants
-static constexpr float STICK_DEADZONE =
-	0.1f; // [0, 1] Percentage of stick input range that will be interpreted as zero around the stick centered value
 static constexpr float YAW_RATE_THRESHOLD =
 	0.02f; // [rad/s] The minimum threshold for the yaw rate measurement not to be interpreted as zero
 static constexpr float SPEED_THRESHOLD =
@@ -129,6 +127,9 @@ private:
 	Vector2f _pos_ctl_start_position_ned{}; // Initial rover position for course control in Position mode
 
 	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::RD_MAN_EXPO>) 	    _param_rd_man_expo,
+		(ParamFloat<px4::params::RD_MAN_SUPEXPO>)   _param_rd_man_supexpo,
+		(ParamFloat<px4::params::RD_MAN_DEADZONE>)  _param_rd_man_deadzone,
 		(ParamFloat<px4::params::RD_WHEEL_TRACK>)   _param_rd_wheel_track,
 		(ParamFloat<px4::params::RD_MAX_YAW_RATE>)  _param_rd_max_yaw_rate,
 		(ParamFloat<px4::params::RD_MAX_THR_YAW_R>) _param_rd_max_thr_yaw_r,
