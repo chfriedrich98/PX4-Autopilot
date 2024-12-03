@@ -150,6 +150,10 @@ void RtlDirect::setRtlPosition(PositionYawSetpoint rtl_position, loiter_point_s 
 			_destination.alt = _home_pos_sub.get().alt;
 		}
 
+		if (_vehicle_status_sub.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROVER) {
+			_destination.yaw = NAN;
+		}
+
 		_land_approach = sanitizeLandApproach(loiter_pos);
 
 		const float dist_to_destination{get_distance_to_next_waypoint(_land_approach.lat, _land_approach.lon, _destination.lat, _destination.lon)};
@@ -165,7 +169,6 @@ void RtlDirect::_updateRtlState()
 	// RTL_LAND_DELAY > 0 -> wait seconds, < 0 wait indefinitely
 	const bool wait_at_rtl_descend_alt = fabsf(_param_rtl_land_delay.get()) > FLT_EPSILON;
 	const bool is_multicopter = (_vehicle_status_sub.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING);
-
 	RTLState new_state{RTLState::IDLE};
 
 	switch (_rtl_state) {
@@ -174,7 +177,10 @@ void RtlDirect::_updateRtlState()
 		break;
 
 	case RTLState::MOVE_TO_LOITER:
-		if (!is_multicopter || wait_at_rtl_descend_alt) {
+		if (_vehicle_status_sub.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROVER) {
+			new_state = RTLState::LAND;
+
+		} else if (!is_multicopter || wait_at_rtl_descend_alt) {
 			new_state = RTLState::LOITER_DOWN;
 
 		} else {
@@ -245,7 +251,7 @@ void RtlDirect::set_rtl_item()
 				.yaw = _param_wv_en.get() ? NAN : _navigator->get_local_position()->heading,
 			};
 			setLoiterToAltMissionItem(_mission_item, pos_yaw_sp, _navigator->get_loiter_radius());
-
+			printf("climb \n");
 			break;
 		}
 
@@ -268,6 +274,7 @@ void RtlDirect::set_rtl_item()
 				setMoveToPositionMissionItem(_mission_item, pos_yaw_sp);
 			}
 
+			printf("move_to_loiter \n");
 			break;
 		}
 
@@ -292,7 +299,7 @@ void RtlDirect::set_rtl_item()
 
 			// Disable previous setpoint to prevent drift.
 			pos_sp_triplet->previous.valid = false;
-
+			printf("loiter_down \n");
 			break;
 		}
 
@@ -319,6 +326,7 @@ void RtlDirect::set_rtl_item()
 				}
 			}
 
+			printf("loiter_hold \n");
 			break;
 		}
 
@@ -340,13 +348,13 @@ void RtlDirect::set_rtl_item()
 			pos_sp_triplet->previous.lon = _land_approach.lon;
 			pos_sp_triplet->previous.alt = get_absolute_altitude_for_item(_mission_item);
 			pos_sp_triplet->previous.valid = true;
-
+			printf("move_to_land \n");
 			break;
 		}
 
 	case RTLState::TRANSITION_TO_MC: {
 			set_vtol_transition_item(&_mission_item, vtol_vehicle_status_s::VEHICLE_VTOL_STATE_MC);
-
+			printf("transition_to_mc \n");
 			break;
 		}
 
@@ -357,7 +365,7 @@ void RtlDirect::set_rtl_item()
 
 			setMoveToPositionMissionItem(_mission_item, pos_yaw_sp);
 			_navigator->reset_position_setpoint(pos_sp_triplet->previous);
-
+			printf("move_to_land_hover \n");
 			break;
 		}
 
@@ -372,12 +380,14 @@ void RtlDirect::set_rtl_item()
 
 			mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: land at destination\t");
 			events::send(events::ID("rtl_land_at_destination"), events::Log::Info, "RTL: land at destination");
+			printf("land \n");
 			break;
 		}
 
 	case RTLState::IDLE: {
 			set_idle_item(&_mission_item);
 			_navigator->mode_completed(getNavigatorStateId());
+			printf("idle \n");
 			break;
 		}
 
